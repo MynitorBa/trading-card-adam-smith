@@ -1,0 +1,20 @@
+DISPLAY 3D · TRADING CARD ADAM SMITH
+=====================================
+
+ABRIR
+  Doble clic en index.html (Chrome, Edge o Firefox). Necesita internet
+  la primera vez (carga Three.js y las fuentes).
+
+CONTROLES
+  Arrastrar ........ girar la tarjeta
+  Clic / Espacio ... voltear (frente / reverso)
+  Rueda / doble clic acercar para leer una parte
+  Con zoom ......... arrastrar o flechas para moverse
+  + / - / 0 ........ acercar, alejar, ver la tarjeta completa
+  A ................ giro automático
+  B ................ brillo holográfico on/off
+  F ................ fuentes consultadas
+  P ................ pantalla completa
+  H ................ ocultar la interfaz (para capturas o videos)
+  R ................ repetir la animación
+

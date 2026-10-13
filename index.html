@@ -1,0 +1,1811 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Adam Smith · Trading Card 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --oro: #d9b36c;
+    --oro-claro: #f3dca0;
+    --tinta: #ecdcb4;
+    --vidrio: rgba(14, 9, 5, 0.52);
+    --borde: rgba(217, 179, 108, 0.32);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #050302; color: var(--tinta); }
+  body { font-family: 'Cormorant Garamond', Georgia, serif; -webkit-font-smoothing: antialiased; }
+  #escena { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+  #escena.arrastrando { cursor: grabbing; }
+
+  /* ---------- Pantalla de carga ---------- */
+  #cargando {
+    position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: #050302;
+    transition: opacity 1.4s ease, visibility 1.4s;
+  }
+  #cargando.listo { opacity: 0; visibility: hidden; }
+  .sello-carga {
+    width: 120px; height: 120px; margin: 0 auto; border-radius: 50%; display: grid; place-items: center;
+    border: 1px solid var(--borde); position: relative;
+    font-family: 'Cinzel', serif; font-weight: 900; font-size: 30px; letter-spacing: 4px; color: var(--oro);
+  }
+  .sello-carga::after {
+    content: ''; position: absolute; inset: -8px; border-radius: 50%;
+    border: 2px solid transparent; border-top-color: var(--oro); animation: girar 1.2s linear infinite;
+  }
+  .texto-carga { margin-top: 26px; text-align: center; font-family: 'Cinzel', serif; letter-spacing: 6px; font-size: 12px; color: rgba(236,220,180,.6); }
+  @keyframes girar { to { transform: rotate(360deg); } }
+
+  /* ---------- Interfaz ---------- */
+  .hud { position: fixed; z-index: 10; transition: opacity .6s ease, transform .6s ease; }
+  body.sin-hud .hud { opacity: 0; pointer-events: none; }
+  body.leyendo #ayuda, body.leyendo #titulo { opacity: 0; pointer-events: none; }
+  body.intro .hud { opacity: 0; transform: translateY(8px); pointer-events: none; }
+
+  #titulo { top: max(20px, env(safe-area-inset-top)); left: 22px; }
+  #titulo h1 { margin: 0; font-family: 'Cinzel', serif; font-weight: 700; font-size: 22px; letter-spacing: 5px; color: var(--oro-claro); text-transform: uppercase; text-shadow: 0 2px 18px rgba(0,0,0,.8); }
+  #titulo .autores { list-style: none; margin: 8px 0 0; padding: 0; font-size: 17px; line-height: 1.35; color: rgba(236,220,180,.78); text-shadow: 0 2px 12px rgba(0,0,0,.8); }
+
+  #controles {
+    left: 50%; bottom: max(22px, env(safe-area-inset-bottom)); transform: translateX(-50%);
+    display: flex; gap: 6px; padding: 6px; border-radius: 999px;
+    background: var(--vidrio); border: 1px solid var(--borde);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 10px 40px rgba(0,0,0,.5);
+  }
+  body.intro #controles { transform: translate(-50%, 8px); }
+  #controles button {
+    display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 999px; white-space: nowrap;
+    border: 1px solid transparent; background: transparent; color: var(--tinta); cursor: pointer;
+    font-family: 'Cinzel', serif; font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+    transition: background .25s, border-color .25s, color .25s;
+  }
+  #controles button:hover { background: rgba(217,179,108,.12); }
+  #controles button.activo { border-color: rgba(217,179,108,.55); color: var(--oro-claro); background: rgba(217,179,108,.16); }
+  #controles button:focus-visible { outline: 2px solid var(--oro); outline-offset: 2px; }
+  #controles svg { width: 17px; height: 17px; flex: none; }
+  #controles kbd {
+    font-family: 'Cinzel', serif; font-size: 9.5px; font-weight: 700; letter-spacing: 1px; line-height: 1;
+    padding: 3px 5px; border: 1px solid rgba(217,179,108,.4); border-radius: 4px; color: var(--oro); opacity: .8;
+  }
+
+
+  #ayuda {
+    right: 22px; top: max(26px, env(safe-area-inset-top)); margin: 0; text-align: right;
+    font-size: 15px; font-style: italic; color: rgba(236,220,180,.55); line-height: 1.5;
+  }
+  #ayuda kbd { font-family: 'Cinzel', serif; font-style: normal; font-size: 11px; padding: 1px 6px; border: 1px solid var(--borde); border-radius: 4px; color: var(--oro); }
+
+
+  #guiaZoom {
+    left: 50%; bottom: calc(max(22px, env(safe-area-inset-bottom)) + 64px); transform: translate(-50%, 8px);
+    display: flex; align-items: center; gap: 14px; padding: 10px 20px; border-radius: 999px;
+    max-width: calc(100vw - 32px); white-space: nowrap;
+    background: rgba(14, 9, 5, 0.72); border: 1px solid var(--borde);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    font-size: 16px; color: rgba(236,220,180,.85); opacity: 0; pointer-events: none;
+  }
+  body.leyendo #guiaZoom { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+  body.intro #guiaZoom, body.sin-hud #guiaZoom { opacity: 0; pointer-events: none; }
+  #guiaZoom kbd { font-family: 'Cinzel', serif; font-size: 11px; padding: 1px 6px; border: 1px solid var(--borde); border-radius: 4px; color: var(--oro); }
+  #guiaZoom b { color: var(--oro-claro); font-weight: 600; }
+
+  #zoom {
+    right: max(18px, env(safe-area-inset-right)); top: 50%; transform: translateY(-50%);
+    display: flex; flex-direction: column; gap: 6px; padding: 6px; border-radius: 999px;
+    background: var(--vidrio); border: 1px solid var(--borde);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  }
+  body.intro #zoom { transform: translate(8px, -50%); }
+  #zoom button {
+    width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; cursor: pointer;
+    border: 1px solid transparent; background: transparent; color: var(--tinta); transition: background .25s;
+  }
+  #zoom button:hover { background: rgba(217,179,108,.14); }
+  #zoom button:focus-visible { outline: 2px solid var(--oro); outline-offset: 2px; }
+  #zoom svg { width: 18px; height: 18px; }
+
+  #panelFuentes {
+    position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 16px;
+    background: rgba(5,3,2,.6); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    transition: opacity .3s;
+  }
+  #panelFuentes.oculto { opacity: 0; pointer-events: none; }
+  .hoja {
+    width: min(760px, 100%); max-height: min(82vh, 900px); overflow-y: auto; padding: 28px 30px 22px;
+    background: linear-gradient(#f3e6c2, #e2cc98); color: #2e1c0c; border-radius: 16px;
+    border: 2px solid #c99a45; box-shadow: 0 20px 60px rgba(0,0,0,.6);
+  }
+  .hoja header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .hoja h2 { margin: 0; font-family: 'Cinzel', serif; font-size: 24px; letter-spacing: 3px; color: #3a2410; }
+  .hoja .cerrar { border: 1px solid rgba(90,60,20,.4); background: transparent; color: #3a2410; border-radius: 8px; padding: 6px 12px; cursor: pointer; font-family: 'Cinzel', serif; font-weight: 700; }
+  .hoja .nota { margin: 6px 0 18px; font-style: italic; font-size: 16px; color: #5a3c18; }
+  .hoja h3 { margin: 18px 0 6px; font-family: 'Cinzel', serif; font-size: 15px; letter-spacing: 2px; color: #6b4512; border-bottom: 1px solid rgba(107,69,18,.3); padding-bottom: 4px; }
+  .hoja ul { margin: 0; padding-left: 18px; }
+  .hoja li { margin: 6px 0; font-size: 17px; line-height: 1.35; }
+  .hoja a { color: #1d4a36; font-weight: 600; }
+  .hoja li span { display: block; font-size: 15px; color: #5a3c18; }
+
+  @media (max-width: 720px) {
+    #guiaZoom { white-space: normal; flex-direction: column; gap: 8px; padding: 10px 14px; border-radius: 16px; text-align: center; font-size: 15px; }
+    #controles button span, #controles kbd { display: none; }
+    #controles button { padding: 0 12px; }
+    #ayuda { display: none; }
+    #titulo h1 { font-size: 17px; letter-spacing: 3px; }
+    #titulo .autores { font-size: 14px; margin-top: 4px; }
+  }
+</style>
+<!-- Imágenes incrustadas (opcional). Las genera incrustar-imagenes.ps1 -->
+<script src="assets/imagenes.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body class="intro">
+<canvas id="escena" aria-label="Tarjeta de Adam Smith en 3D"></canvas>
+
+<div id="cargando">
+  <div>
+    <div class="sello-carga">A·S</div>
+    <div class="texto-carga">PREPARANDO LA ESCENA</div>
+  </div>
+</div>
+
+<header id="titulo" class="hud">
+  <h1>Adam Smith</h1>
+  <ul class="autores">
+    <li>Mynor Barrios</li>
+    <li>Gadiel Monterroso</li>
+    <li>Luis Carlos Solis</li>
+  </ul>
+</header>
+
+<p id="ayuda" class="hud"></p>
+
+<div id="guiaZoom" class="hud" role="note">
+  <span id="guiaTexto"></span>
+</div>
+
+<div id="zoom" class="hud" aria-label="Zoom">
+  <button id="btnAcercar" title="Acercar (+)" aria-label="Acercar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+  <button id="btnAlejar" title="Alejar (−)" aria-label="Alejar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg></button>
+  <button id="btnRestablecer" title="Ver tarjeta completa (0)" aria-label="Ver tarjeta completa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M3 8V4h4M21 8V4h-4M3 16v4h4M21 16v4h-4"/></svg></button>
+</div>
+
+<nav id="controles" class="hud" aria-label="Controles">
+  <button id="btnVoltear" title="Voltear (Espacio)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 21v-5h5"/></svg>
+    <span>Voltear</span><kbd>Espacio</kbd>
+  </button>
+  <button id="btnAuto" title="Giro automático (A)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="9" ry="4"/><path d="M12 3v18"/><path d="m15 18 3 0.5-0.5 3"/></svg>
+    <span>Auto-giro</span><kbd>A</kbd>
+  </button>
+  <button id="btnHolo" class="activo" title="Brillo holográfico (B)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z"/></svg>
+    <span>Holo</span><kbd>B</kbd>
+  </button>
+  <button id="btnFuentes" title="Fuentes consultadas (F)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+    <span>Fuentes</span><kbd>F</kbd>
+  </button>
+  <button id="btnPantalla" title="Pantalla completa (P)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+    <span>Pantalla</span><kbd>P</kbd>
+  </button>
+</nav>
+
+
+<div id="panelFuentes" class="oculto" role="dialog" aria-label="Fuentes consultadas">
+  <div class="hoja">
+    <header><h2>Fuentes consultadas</h2><button class="cerrar" id="cerrarFuentes">Cerrar</button></header>
+    <p class="nota">Fuentes usadas para los textos de la tarjeta, ordenadas por sección.</p>
+    <div id="listaFuentes"></div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* =====================================================================
+   CONFIGURACIÓN — lo único que normalmente hay que tocar
+   ===================================================================== */
+const CONFIG = {
+  // Rutas que se intentan cargar (cuando la página se abre desde un servidor o link).
+  frente:  ['assets/frente.png', 'assets/frente.jpg', 'assets/frente.webp'],
+  reverso: ['assets/reverso.png', 'assets/reverso.jpg', 'assets/reverso.webp'],
+  // Solo el retrato: se coloca dentro de la tarjeta provisional mientras no exista el diseño completo
+  retrato: ['assets/retrato.png', 'assets/retrato.jpg', 'assets/retrato.webp'],
+  proporcion: 88 / 63,   // alto / ancho. Se ajusta sola a la imagen del frente.
+  altoTarjeta: 3.5,      // tamaño en la escena
+  grosor: 0.028,
+  holograma: true,
+  intensidadHolo: 1.0,
+};
+
+/* =====================================================================
+   Utilidades
+   ===================================================================== */
+const TAU = Math.PI * 2;
+const clamp01 = (x) => Math.min(1, Math.max(0, x));
+const lerp = (a, b, t) => a + (b - a) * t;
+const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+const suave = (k, dt) => 1 - Math.exp(-k * dt);
+
+function aleatorio(semilla) {
+  let s = semilla >>> 0;
+  return () => {
+    s = (s + 0x6D2B79F5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const PERM = (() => {
+  const r = aleatorio(7), p = [...Array(256).keys()];
+  for (let i = 255; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [p[i], p[j]] = [p[j], p[i]]; }
+  return Uint8Array.from([...p, ...p]);
+})();
+
+// Ruido de valor con periodo horizontal (para texturas que se repiten sin costura)
+function ruido(x, y, px = 256) {
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+  const x0 = ((xi % px) + px) % px, x1 = (x0 + 1) % px;
+  const y0 = yi & 255, y1 = (yi + 1) & 255;
+  const h = (a, b) => PERM[PERM[a & 255] + b] / 255;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const a = h(x0, y0), b = h(x1, y0), c = h(x0, y1), d = h(x1, y1);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+function fbm(x, y, oct = 4, px = 256) {
+  let s = 0, a = 0.5, f = 1, n = 0;
+  for (let i = 0; i < oct; i++) { s += a * ruido(x * f, y * f, px * f); n += a; a *= 0.5; f *= 2; }
+  return s / n;
+}
+
+function lienzo(w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  return [c, c.getContext('2d')];
+}
+
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('escena'), antialias: true, powerPreference: 'high-performance' });
+const maxAniso = renderer.capabilities.getMaxAnisotropy();
+
+function texturaDe(c, { color = true, repetir = null } = {}) {
+  const t = new THREE.CanvasTexture(c);
+  if (color) t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = maxAniso;
+  if (repetir) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repetir[0], repetir[1]); }
+  return t;
+}
+
+function rectRedondo(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function degradadoOro(ctx, x0, y0, x1, y1) {
+  const g = ctx.createLinearGradient(x0, y0, x1, y1);
+  g.addColorStop(0.00, '#6e4f17');
+  g.addColorStop(0.18, '#f4d98a');
+  g.addColorStop(0.35, '#a87a26');
+  g.addColorStop(0.52, '#fff1bd');
+  g.addColorStop(0.70, '#b98a2f');
+  g.addColorStop(0.86, '#f0d283');
+  g.addColorStop(1.00, '#6e4f17');
+  return g;
+}
+
+function textoCircular(ctx, texto, cx, cy, r, fuente, color) {
+  ctx.save();
+  ctx.font = fuente; ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const letras = [...texto], paso = TAU / letras.length;
+  letras.forEach((l, i) => {
+    const a = -Math.PI / 2 + i * paso;
+    ctx.save();
+    ctx.translate(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+    ctx.rotate(a + Math.PI / 2);
+    ctx.fillText(l, 0, 0);
+    ctx.restore();
+  });
+  ctx.restore();
+}
+
+// Rosetas tipo billete antiguo (guilloché)
+function guilloche(ctx, cx, cy, R, amp, petalos, lineas, color, grosor = 1) {
+  ctx.save();
+  ctx.strokeStyle = color; ctx.lineWidth = grosor;
+  for (let k = 0; k < lineas; k++) {
+    const fase = (k / lineas) * TAU;
+    ctx.beginPath();
+    for (let i = 0; i <= 720; i++) {
+      const th = (i / 720) * TAU;
+      const r = R + amp * Math.sin(petalos * th + fase) + amp * 0.35 * Math.sin((petalos * 2 + 1) * th - fase);
+      const x = cx + Math.cos(th) * r, y = cy + Math.sin(th) * r;
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/* =====================================================================
+   Texturas procedurales
+   ===================================================================== */
+function texturaPisoMadera() {
+  const N = 1024, filas = 8, alto = N / filas;
+  const [c1, x1] = lienzo(N, N), [c2, x2] = lienzo(N, N);
+  const im1 = x1.createImageData(N, N), im2 = x2.createImageData(N, N);
+  const r = aleatorio(21), tonos = [], juntas = [];
+  for (let f = 0; f < filas; f++) { tonos.push(0.78 + r() * 0.45); juntas.push(Math.floor(r() * N)); }
+  for (let y = 0; y < N; y++) {
+    const f = Math.floor(y / alto), ly = y - f * alto;
+    for (let x = 0; x < N; x++) {
+      const X = (x / N) * 8;
+      const veta = fbm(X, y * 0.03 + f * 13.7, 4, 8);
+      const anillos = 0.5 + 0.5 * Math.sin((veta * 7 + ly * 0.04) * TAU);
+      const g = anillos * anillos * anillos;
+      const mancha = fbm(X * 0.5 + 3, y * 0.012, 3, 4);
+      const k = (0.5 + 0.7 * mancha - 0.32 * g) * tonos[f];
+      let borde = 1;
+      if (ly < 2 || ly > alto - 2) borde = 0.22;
+      if ((x - juntas[f] + N) % N < 2) borde = 0.3;
+      const i = (y * N + x) * 4;
+      im1.data[i] = (30 + 56 * k) * borde;
+      im1.data[i + 1] = (15 + 30 * k) * borde;
+      im1.data[i + 2] = (7 + 15 * k) * borde;
+      im1.data[i + 3] = 255;
+      const ru = 120 + g * 70 + (1 - borde) * 60;
+      im2.data[i] = im2.data[i + 1] = im2.data[i + 2] = ru; im2.data[i + 3] = 255;
+    }
+  }
+  x1.putImageData(im1, 0, 0); x2.putImageData(im2, 0, 0);
+  return [texturaDe(c1, { repetir: [7, 7] }), texturaDe(c2, { color: false, repetir: [7, 7] })];
+}
+
+function texturaCaoba() {
+  const N = 512, [c, ctx] = lienzo(N, N), im = ctx.createImageData(N, N);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const X = (x / N) * 16;
+    const t = fbm(X, y * 0.004, 4, 16) * 6 + X * 0.9;
+    const g = Math.pow(0.5 + 0.5 * Math.sin(t * TAU), 2.5);
+    const k = 0.55 + 0.45 * fbm(X * 2, y * 0.02, 2, 32) - g * 0.35;
+    const i = (y * N + x) * 4;
+    im.data[i] = 36 + 62 * k; im.data[i + 1] = 13 + 24 * k; im.data[i + 2] = 7 + 12 * k; im.data[i + 3] = 255;
+  }
+  ctx.putImageData(im, 0, 0);
+  return texturaDe(c);
+}
+
+function texturaMarmol() {
+  const N = 512, [c, ctx] = lienzo(N, N), im = ctx.createImageData(N, N);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const v = fbm(x * 0.008, y * 0.008, 5);
+    let vena = 1 - Math.abs(Math.sin((x * 0.004 + y * 0.007 + v * 3.2) * Math.PI));
+    vena = Math.pow(vena, 22);
+    let vena2 = 1 - Math.abs(Math.sin((x * 0.011 - y * 0.003 + v * 5.0) * Math.PI));
+    vena2 = Math.pow(vena2, 60) * 0.5;
+    const f = fbm(x * 0.05, y * 0.05, 2) * 10;
+    const i = (y * N + x) * 4;
+    im.data[i] = 9 + f + vena * 190 + vena2 * 120;
+    im.data[i + 1] = 9 + f + vena * 165 + vena2 * 100;
+    im.data[i + 2] = 11 + f + vena * 120 + vena2 * 80;
+    im.data[i + 3] = 255;
+  }
+  ctx.putImageData(im, 0, 0);
+  return texturaDe(c);
+}
+
+function texturaCuero() {
+  const N = 256, [c, ctx] = lienzo(N, N), im = ctx.createImageData(N, N);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const k = 0.72 + 0.28 * fbm(x * 0.06, y * 0.06, 4) - Math.random() * 0.06;
+    const i = (y * N + x) * 4;
+    im.data[i] = im.data[i + 1] = im.data[i + 2] = 255 * k; im.data[i + 3] = 255;
+  }
+  ctx.putImageData(im, 0, 0);
+  return texturaDe(c);
+}
+
+function texturaPaginas() {
+  const [c, ctx] = lienzo(256, 64);
+  ctx.fillStyle = '#e6d6b0'; ctx.fillRect(0, 0, 256, 64);
+  for (let y = 0; y < 64; y += 1.5) { ctx.fillStyle = `rgba(120,95,55,${0.08 + Math.random() * 0.18})`; ctx.fillRect(0, y, 256, 0.6); }
+  return texturaDe(c);
+}
+
+function texturaPapelRugosidad() {
+  const N = 512, [c, ctx] = lienzo(N, N), im = ctx.createImageData(N, N);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const v = 95 + fbm(x * 0.03, y * 0.03, 3) * 50 + Math.random() * 18;
+    const i = (y * N + x) * 4;
+    im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 255;
+  }
+  ctx.putImageData(im, 0, 0);
+  return texturaDe(c, { color: false });
+}
+
+function texturaBiblioteca() {
+  const W = 2048, H = 1024, [c, ctx] = lienzo(W, H), r = aleatorio(99);
+  ctx.fillStyle = '#0a0503'; ctx.fillRect(0, 0, W, H);
+  const filas = 4, altoFila = H / filas;
+  const colores = ['#5c1d16', '#2a4630', '#4a2c15', '#1c2c44', '#6d4c1f', '#3a1f33', '#7a3a1a', '#22352a', '#58401f', '#2e1a10'];
+  for (let f = 0; f < filas; f++) {
+    const y0 = f * altoFila, base = y0 + altoFila - 26;
+    ctx.fillStyle = '#120905'; ctx.fillRect(0, y0, W, altoFila);
+    let x = 0;
+    while (x < W) {
+      const w = 16 + r() * 34, h = (0.6 + r() * 0.32) * (altoFila - 40);
+      if (r() < 0.05) { x += 24 + r() * 50; continue; }
+      const inclinado = r() < 0.04;
+      ctx.save();
+      if (inclinado) { ctx.translate(x, base); ctx.rotate(-0.25); ctx.translate(-x, -base); }
+      ctx.fillStyle = colores[Math.floor(r() * colores.length)];
+      ctx.fillRect(x, base - h, w - 2, h);
+      const g = ctx.createLinearGradient(x, 0, x + w, 0);
+      g.addColorStop(0, 'rgba(0,0,0,0.7)'); g.addColorStop(0.35, 'rgba(255,230,190,0.12)'); g.addColorStop(1, 'rgba(0,0,0,0.75)');
+      ctx.fillStyle = g; ctx.fillRect(x, base - h, w - 2, h);
+      if (r() < 0.75) {
+        ctx.fillStyle = 'rgba(220,175,95,0.8)';
+        const n = 1 + Math.floor(r() * 3);
+        for (let k = 0; k < n; k++) { ctx.fillRect(x + 2, base - h + 12 + k * 9, w - 6, 3); ctx.fillRect(x + 2, base - 22 - k * 9, w - 6, 3); }
+      }
+      if (r() < 0.4) { ctx.fillStyle = 'rgba(220,175,95,0.5)'; ctx.fillRect(x + w * 0.25, base - h * 0.62, w * 0.42, h * 0.18); }
+      ctx.restore();
+      x += w;
+    }
+    const gt = ctx.createLinearGradient(0, base, 0, base + 26);
+    gt.addColorStop(0, '#6a3f1f'); gt.addColorStop(1, '#1e0f07');
+    ctx.fillStyle = gt; ctx.fillRect(0, base, W, 26);
+    const gs = ctx.createLinearGradient(0, y0, 0, y0 + 70);
+    gs.addColorStop(0, 'rgba(0,0,0,0.9)'); gs.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gs; ctx.fillRect(0, y0, W, 70);
+  }
+  for (let x = 0; x <= W; x += 512) {
+    const gc = ctx.createLinearGradient(x - 22, 0, x + 22, 0);
+    gc.addColorStop(0, '#140a05'); gc.addColorStop(0.5, '#4f2d16'); gc.addColorStop(1, '#140a05');
+    ctx.fillStyle = gc; ctx.fillRect(x - 22, 0, 44, H);
+  }
+  const [c2, ctx2] = lienzo(W, H);
+  ctx2.filter = 'blur(6px)'; ctx2.drawImage(c, 0, 0); ctx2.filter = 'none';
+  const gv = ctx2.createRadialGradient(W / 2, H * 0.6, H * 0.15, W / 2, H * 0.6, W * 0.55);
+  gv.addColorStop(0, 'rgba(0,0,0,0)'); gv.addColorStop(1, 'rgba(0,0,0,0.8)');
+  ctx2.fillStyle = gv; ctx2.fillRect(0, 0, W, H);
+  return texturaDe(c2);
+}
+
+function texturaMoneda() {
+  const S = 512, m = S / 2, [c, ctx] = lienzo(S, S);
+  const g = ctx.createRadialGradient(m * 0.75, m * 0.65, 10, m, m, m);
+  g.addColorStop(0, '#fff3c4'); g.addColorStop(0.45, '#dcae4a'); g.addColorStop(1, '#7d5517');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
+  const circulo = (r, ancho, color) => { ctx.beginPath(); ctx.arc(m, m, r, 0, TAU); ctx.lineWidth = ancho; ctx.strokeStyle = color; ctx.stroke(); };
+  circulo(m - 14, 22, 'rgba(255,236,170,0.9)');
+  circulo(m - 28, 4, 'rgba(90,58,14,0.9)');
+  circulo(m - 120, 3, 'rgba(90,58,14,0.8)');
+  for (let i = 0; i < 80; i++) {
+    const a = (i / 80) * TAU;
+    ctx.beginPath(); ctx.arc(m + Math.cos(a) * (m - 40), m + Math.sin(a) * (m - 40), 4, 0, TAU);
+    ctx.fillStyle = 'rgba(110,72,18,0.85)'; ctx.fill();
+  }
+  textoCircular(ctx, 'ADAM SMITH · THE WEALTH OF NATIONS · ', m, m, m - 80, '700 30px Cinzel', '#5e3c0e');
+  ctx.fillStyle = '#5e3c0e'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = '900 104px Cinzel'; ctx.fillText('1776', m, m + 6);
+  ctx.font = '700 28px Cinzel'; ctx.fillText('★  £  ★', m, m - 70); ctx.fillText('KIRKCALDY', m, m + 76);
+  return c;
+}
+
+function texturaSuave(tam = 128) {
+  const [c, ctx] = lienzo(tam, tam), m = tam / 2;
+  const g = ctx.createRadialGradient(m, m, 0, m, m, m);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.25, 'rgba(255,255,255,0.55)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, tam, tam);
+  return texturaDe(c);
+}
+
+function texturaLlama() {
+  const [c, ctx] = lienzo(64, 128);
+  ctx.save(); ctx.translate(32, 88); ctx.scale(1, 2.6);
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 22);
+  g.addColorStop(0, 'rgba(255,255,240,1)'); g.addColorStop(0.35, 'rgba(255,214,140,0.95)');
+  g.addColorStop(0.7, 'rgba(255,120,30,0.5)'); g.addColorStop(1, 'rgba(255,80,0,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 22, 0, TAU); ctx.fill();
+  ctx.restore();
+  return texturaDe(c);
+}
+
+function texturaTapaLibro() {
+  const [c, ctx] = lienzo(512, 384);
+  ctx.fillStyle = '#4a1410'; ctx.fillRect(0, 0, 512, 384);
+  for (let i = 0; i < 4000; i++) { ctx.fillStyle = `rgba(0,0,0,${Math.random() * 0.12})`; ctx.fillRect(Math.random() * 512, Math.random() * 384, 2, 2); }
+  ctx.strokeStyle = 'rgba(222,180,96,0.9)'; ctx.lineWidth = 4; ctx.strokeRect(22, 22, 468, 340);
+  ctx.lineWidth = 1.5; ctx.strokeRect(34, 34, 444, 316);
+  ctx.fillStyle = '#e2bb66'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = '700 44px Cinzel'; ctx.fillText('THE WEALTH', 256, 140); ctx.fillText('OF NATIONS', 256, 196);
+  ctx.font = '500 24px Cinzel'; ctx.fillText('ADAM SMITH', 256, 262);
+  ctx.font = '500 18px Cinzel'; ctx.fillText('MDCCLXXVI', 256, 300);
+  return texturaDe(c);
+}
+
+/* ---------- Contenido de la tarjeta ---------- */
+// Textos de la tarjeta. Las fuentes de cada sección están en FUENTES (se ven en el botón "Fuentes").
+const CONTENIDO = {
+  nombre: 'ADAM SMITH',
+  origen: 'KIRKCALDY, ESCOCIA',
+  fechas: '1723 – 1790',
+  fechasDetalle: 'Bautizado el 5 de junio de 1723 en Kirkcaldy · Murió el 17 de julio de 1790 en Edimburgo',
+  corriente: 'Ilustración escocesa · Economía política',
+  superpoder: 'LA MANO INVISIBLE',
+  idea: 'La riqueza de un país es lo que produce su gente, no el oro que guarda. En un mercado libre, cada persona busca su propio beneficio y, sin proponérselo, ayuda a los demás, como guiada por una mano invisible.',
+  influencia: [['🏛️', 'POLÍTICA', 4], ['📚', 'EDUCACIÓN', 3], ['🔬', 'CIENCIA', 4], ['🌍', 'SOCIEDAD', 5]],
+  secciones: [
+    ['I', 'CONTEXTO HISTÓRICO', 'Gran Bretaña iniciaba la Revolución Industrial. En Europa, los gobiernos creían que ser rico era acumular oro y protegían monopolios. La Ilustración escocesa estudiaba la sociedad con el método de la ciencia.'],
+    ['II', 'OBRA · LA RIQUEZA DE LAS NACIONES, 1776', 'Explicó que dividir el trabajo multiplica la producción y que el comercio libre enriquece a los países. Fue el estudio de economía más completo de su época y la base de la economía clásica.'],
+    ['III', 'IMPACTO HISTÓRICO', 'Argumentó que en el comercio ambas partes pueden ganar. Sus ideas influyeron en Gran Bretaña y gran parte de Occidente. En 1846 Gran Bretaña abolió las Leyes de los Cereales y dio el primer paso hacia el libre comercio.'],
+    ['IV', 'VIGENCIA ACTUAL', 'Su obra sigue en el centro del pensamiento económico. También propuso escuelas baratas en cada parroquia para que los hijos de obreros aprendieran a leer, escribir y contar, idea viva en la educación básica actual.'],
+  ],
+  desafio: 'Admiraría el comercio que ha sacado a millones de personas de la pobreza, pero criticaría a los monopolios que frenan la competencia.',
+};
+
+const FUENTES = [
+  { seccion: 'Identidad y datos de vida', items: [
+    ['University of Glasgow · Adam Smith 300: Biography', 'https://www.gla.ac.uk/explore/adamsmith300/explorelearn/life/biography/', 'Fue bautizado el 5 de junio de 1723 en Kirkcaldy. Su fecha exacta de nacimiento se desconoce.'],
+    ['James R. Otteson · A Brief Biography of Adam Smith, Adam Smith Works', 'https://www.adamsmithworks.org/documents/otteson-brief-smith-bio', 'Murió el 17 de julio de 1790 en Edimburgo. Econlib da el 19 de julio, pero la fecha aceptada es el 17.'],
+    ['University of Glasgow · Adam Smith 300: Life', 'https://www.gla.ac.uk/explore/adamsmith300/lifeworkandlegacy/life/', 'Estudios en Glasgow y Oxford, entierro en el cementerio de Canongate, Edimburgo.'],
+    ['Stanford Encyclopedia of Philosophy · Scottish Philosophy in the 18th Century', 'https://plato.stanford.edu/entries/scottish-18th/', 'Smith como figura central de la filosofía escocesa del siglo XVIII junto a Hutcheson y Hume.'],
+  ] },
+  { seccion: 'Contexto histórico', items: [
+    ['Mark Cartwright · British Industrial Revolution, World History Encyclopedia', 'https://www.worldhistory.org/British_Industrial_Revolution/', 'La Revolución Industrial británica suele fecharse entre 1760 y 1840.'],
+    ['Econlib · Concise Encyclopedia of Economics: Mercantilism', 'https://www.econlib.org/library/Enc/Mercantilism.html', 'El mercantilismo dominó la política económica de Europa occidental desde el siglo XVI hasta fines del XVIII. Medía la riqueza en oro y plata y otorgaba monopolios como el de la Compañía de las Indias Orientales.'],
+    ['Stanford Encyclopedia of Philosophy · Scottish Philosophy in the 18th Century', 'https://plato.stanford.edu/entries/scottish-18th/', 'Los pensadores escoceses querían aplicar el método experimental de la ciencia al estudio del ser humano y la sociedad.'],
+  ] },
+  { seccion: 'Idea principal', items: [
+    ['Econlib · Concise Encyclopedia of Economics: Adam Smith', 'https://www.econlib.org/library/Enc/bios/Smith.html', 'La mano invisible y el ejemplo del carnicero, el cervecero y el panadero. El interés propio en un mercado competitivo sirve a los demás.'],
+    ['Econlib · Concise Encyclopedia of Economics: Mercantilism', 'https://www.econlib.org/library/Enc/Mercantilism.html', 'Para Smith la riqueza de una nación no se mide por su oro y su plata.'],
+    ['Adam Smith · An Inquiry into the Nature and Causes of the Wealth of Nations, Project Gutenberg', 'https://www.gutenberg.org/ebooks/3300', 'Texto original: libro I, capítulo 2, y libro IV, capítulo 2.'],
+  ] },
+  { seccion: 'Obra más relevante', items: [
+    ['Econlib · Concise Encyclopedia of Economics: Adam Smith', 'https://www.econlib.org/library/Enc/bios/Smith.html', 'La división del trabajo como motor de la productividad, el libre comercio, el estudio más sistemático y completo de su tiempo y la base de la economía clásica.'],
+    ['James R. Otteson · A Brief Biography of Adam Smith, Adam Smith Works', 'https://www.adamsmithworks.org/documents/otteson-brief-smith-bio', 'Publicada el 9 de marzo de 1776 tras unos diez años de trabajo.'],
+  ] },
+  { seccion: 'Impacto histórico', items: [
+    ['Econlib · Concise Encyclopedia of Economics: Mercantilism', 'https://www.econlib.org/library/Enc/Mercantilism.html', 'El comercio libre beneficia a ambas partes, al contrario de la visión de suma cero del mercantilismo.'],
+    ['James R. Otteson · A Brief Biography of Adam Smith, Adam Smith Works', 'https://www.adamsmithworks.org/documents/otteson-brief-smith-bio', 'Sus recomendaciones de libre mercado y libre comercio influyeron mucho en Gran Bretaña y en gran parte de Occidente, y se citaban en el Parlamento al debatir las Leyes de los Cereales.'],
+    ['EBSCO Research Starters · British Parliament Repeals the Corn Laws', 'https://www.ebsco.com/research-starters/history/british-parliament-repeals-corn-laws', 'La abolición de 1846 fue el primer paso de Gran Bretaña hacia el libre comercio. Menciona que Smith ya lo defendía en 1776.'],
+  ] },
+  { seccion: 'Vigencia actual', items: [
+    ['Bank of England · New Adam Smith £20 Banknote Out Today, 13 de marzo de 2007', 'https://www.bankofengland.co.uk/-/media/boe/files/news/2007/march/new-adam-smith-20-banknote-out-today.pdf', 'El Banco de Inglaterra lo puso en el billete de 20 libras y afirmó que su obra sigue en el centro del pensamiento económico.'],
+    ['James R. Otteson · Adam Smith on Public Provision of Education, Journal of the History of Economic Thought, Cambridge', 'https://doi.org/10.1017/S1053837222000645', 'Smith propuso una pequeña escuela en cada parroquia, tan barata que hasta un obrero pudiera pagarla, para enseñar a leer, escribir y contar. El autor matiza que Smith desconfiaba de que el Estado se encargara de la educación.'],
+  ] },
+  { seccion: 'Desafío', items: [
+    ['World Bank Group y WTO · The Role of Trade in Ending Poverty, 2015', 'https://openknowledge.worldbank.org/entities/publication/5b217fd8-05db-5a2d-a3fa-35c3d95b1996', 'La pobreza extrema bajó en unos mil millones de personas desde 1990 y el comercio fue clave en esa reducción.'],
+    ['Econlib · Concise Encyclopedia of Economics: Mercantilism', 'https://www.econlib.org/library/Enc/Mercantilism.html', 'La crítica de Smith a los monopolios y a la alianza entre gobiernos y comerciantes.'],
+  ] },
+  { seccion: 'Nivel de influencia', items: [
+    ['Valoración del grupo', '', 'Calificación propia basada en las fuentes anteriores, no es un dato de una fuente.'],
+  ] },
+];
+
+/* ---------- Dibujo de la tarjeta ---------- */
+function pergamino(ctx, x, y, w, h, r, s) {
+  const g = ctx.createLinearGradient(0, y, 0, y + h);
+  g.addColorStop(0, '#f4e7c4'); g.addColorStop(1, '#dcc390');
+  ctx.fillStyle = g; rectRedondo(ctx, x, y, w, h, r); ctx.fill();
+  ctx.save(); rectRedondo(ctx, x, y, w, h, r); ctx.clip();
+  const rnd = aleatorio(Math.floor(x * 7 + y * 13));
+  for (let i = 0; i < 1800; i++) { ctx.fillStyle = `rgba(120,85,30,${rnd() * 0.06})`; ctx.fillRect(x + rnd() * w, y + rnd() * h, 3 * s, 3 * s); }
+  const v = ctx.createRadialGradient(x + w / 2, y + h / 2, Math.min(w, h) * 0.3, x + w / 2, y + h / 2, Math.max(w, h) * 0.7);
+  v.addColorStop(0, 'rgba(120,80,30,0)'); v.addColorStop(1, 'rgba(120,80,30,0.25)');
+  ctx.fillStyle = v; ctx.fillRect(x, y, w, h);
+  ctx.restore();
+  ctx.strokeStyle = degradadoOro(ctx, x, y, x + w, y + h); ctx.lineWidth = 6 * s; rectRedondo(ctx, x, y, w, h, r); ctx.stroke();
+}
+function partirLineas(ctx, texto, maxW) {
+  const out = []; let l = '';
+  for (const p of texto.split(' ')) { const t = l ? l + ' ' + p : p; if (ctx.measureText(t).width > maxW && l) { out.push(l); l = p; } else l = t; }
+  if (l) out.push(l);
+  return out;
+}
+function parrafo(ctx, texto, x, y, maxW, lh) {
+  const ls = partirLineas(ctx, texto, maxW);
+  ls.forEach((ln, i) => {
+    if (i < ls.length - 1) {
+      const ps = ln.split(' '), tot = ps.reduce((a, p) => a + ctx.measureText(p).width, 0), gap = (maxW - tot) / Math.max(1, ps.length - 1);
+      let cx = x; ps.forEach((p) => { ctx.fillText(p, cx, y + i * lh); cx += ctx.measureText(p).width + gap; });
+    } else ctx.fillText(ln, x, y + i * lh);
+  });
+  return ls.length * lh;
+}
+function diamante(ctx, x, y, r, lleno, s) {
+  ctx.beginPath(); ctx.moveTo(x, y - r); ctx.lineTo(x + r * 0.75, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r * 0.75, y); ctx.closePath();
+  if (lleno) { ctx.fillStyle = degradadoOro(ctx, x - r, y - r, x + r, y + r); ctx.fill(); }
+  ctx.strokeStyle = lleno ? '#5e3f10' : 'rgba(217,179,108,0.55)'; ctx.lineWidth = 2.5 * s; ctx.stroke();
+}
+function sello(ctx, x, y, r, txt, fs) {
+  ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fillStyle = degradadoOro(ctx, x - r, y - r, x + r, y + r); ctx.fill();
+  ctx.strokeStyle = '#5e3f10'; ctx.lineWidth = r * 0.07; ctx.stroke();
+  ctx.fillStyle = '#4a2d0c'; ctx.font = `900 ${fs}px Cinzel`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, x, y + fs * 0.05);
+}
+function marcoTarjeta(ctx, W, H, s) {
+  ctx.fillStyle = degradadoOro(ctx, 0, 0, W, H); ctx.fillRect(0, 0, W, H);
+  const rnd = aleatorio(5);
+  for (let i = 0; i < 9000; i++) { ctx.fillStyle = `rgba(${rnd() < 0.5 ? '255,250,220' : '60,40,10'},${rnd() * 0.12})`; ctx.fillRect(rnd() * W, rnd() * H, 2 * s, 2 * s); }
+  const m = 48 * s;
+  const g = ctx.createRadialGradient(W / 2, H * 0.4, 60 * s, W / 2, H * 0.5, H * 0.75);
+  g.addColorStop(0, '#184a37'); g.addColorStop(1, '#05120c');
+  ctx.fillStyle = g; rectRedondo(ctx, m, m, W - 2 * m, H - 2 * m, 36 * s); ctx.fill();
+  ctx.save(); rectRedondo(ctx, m, m, W - 2 * m, H - 2 * m, 36 * s); ctx.clip();
+  guilloche(ctx, W / 2, H * 0.5, W * 0.46, W * 0.05, 10, 30, 'rgba(217,179,108,0.06)', 1.6 * s);
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(255,236,180,0.55)'; ctx.lineWidth = 2 * s;
+  rectRedondo(ctx, m + 12 * s, m + 12 * s, W - 2 * m - 24 * s, H - 2 * m - 24 * s, 28 * s); ctx.stroke();
+}
+
+function dibujarFrenteProvisional(W, H) {
+  const [c, ctx] = lienzo(W, H);
+  const s = W / 1500, C = CONTENIDO, X = 90 * s, AN = W - 180 * s;
+  marcoTarjeta(ctx, W, H, s);
+
+  // título
+  pergamino(ctx, X, 86 * s, AN, 128 * s, 22 * s, s);
+  ctx.fillStyle = '#3a2410'; ctx.font = `900 ${86 * s}px Cinzel`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText(C.nombre, 134 * s, 154 * s);
+  sello(ctx, W - 160 * s, 150 * s, 44 * s, '£', 46 * s);
+  ctx.fillStyle = '#e8c478'; ctx.font = `700 ${30 * s}px Cinzel`; ctx.textAlign = 'center';
+  ctx.fillText(`${C.origen}   ✦   ${C.fechas}`, W / 2, 252 * s);
+
+  // de abajo hacia arriba: influencia, idea, superpoder, tipo y el retrato ocupa el resto
+  ctx.font = `600 ${44 * s}px "Cormorant Garamond"`;
+  const lineasIdea = partirLineas(ctx, C.idea, AN - 80 * s).length;
+  const nh = 178 * s, ny = H - 126 * s - nh;
+  const ih = (100 + lineasIdea * 54 + 34) * s, iy = ny - 20 * s - ih;
+  const sh = 124 * s, sy = iy - 20 * s - sh;
+  const th = 76 * s, ty = sy - 20 * s - th;
+  const ax = 100 * s, ay = 286 * s, aw = W - 200 * s, ah = ty - 22 * s - ay;
+
+  // retrato
+  const ga = ctx.createLinearGradient(0, ay, 0, ay + ah);
+  ga.addColorStop(0, '#1b130b'); ga.addColorStop(1, '#0a0705');
+  ctx.fillStyle = ga; ctx.fillRect(ax, ay, aw, ah);
+  const retrato = tarjeta.retrato;
+  if (retrato) {
+    // recorte tipo "cover": si sobra alto se conserva la parte de arriba, donde está la cabeza
+    const ar = retrato.naturalWidth / retrato.naturalHeight, av = aw / ah;
+    let sw = retrato.naturalWidth, shh = retrato.naturalHeight, sx = 0, syy = 0;
+    if (ar > av) { sw = shh * av; sx = (retrato.naturalWidth - sw) * 0.4; } else { shh = sw / av; syy = (retrato.naturalHeight - shh) * 0.04; }
+    ctx.save(); ctx.beginPath(); ctx.rect(ax, ay, aw, ah); ctx.clip();
+    ctx.drawImage(retrato, sx, syy, sw, shh, ax, ay, aw, ah);
+    const vg = ctx.createRadialGradient(ax + aw / 2, ay + ah / 2, ah * 0.35, ax + aw / 2, ay + ah / 2, aw * 0.7);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(20,8,0,0.35)');
+    ctx.fillStyle = vg; ctx.fillRect(ax, ay, aw, ah);
+    ctx.restore();
+  } else {
+    ctx.save();
+    ctx.beginPath(); ctx.ellipse(W / 2, ay + ah * 0.48, aw * 0.28, ah * 0.36, 0, 0, TAU);
+    ctx.setLineDash([14 * s, 14 * s]); ctx.strokeStyle = 'rgba(217,179,108,0.45)'; ctx.lineWidth = 4 * s; ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = 'rgba(243,220,160,0.9)'; ctx.textAlign = 'center';
+    ctx.font = `700 ${56 * s}px Cinzel`; ctx.fillText('RETRATO', W / 2, ay + ah * 0.46);
+  }
+  ctx.strokeStyle = degradadoOro(ctx, ax, ay, ax + aw, ay + ah); ctx.lineWidth = 14 * s; ctx.strokeRect(ax, ay, aw, ah);
+  ctx.strokeStyle = 'rgba(60,35,8,0.8)'; ctx.lineWidth = 3 * s; ctx.strokeRect(ax + 10 * s, ay + 10 * s, aw - 20 * s, ah - 20 * s);
+
+  // línea de tipo
+  pergamino(ctx, X, ty, AN, th, 14 * s, s);
+  ctx.fillStyle = '#3a2410'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.font = `italic 600 ${42 * s}px "Cormorant Garamond"`; ctx.fillText(C.corriente, 130 * s, ty + 40 * s);
+  ctx.textAlign = 'right'; ctx.font = `700 ${28 * s}px Cinzel`; ctx.fillText('PENSADOR', W - 130 * s, ty + 40 * s);
+
+  // superpoder
+  const gs = ctx.createLinearGradient(0, sy, 0, sy + sh);
+  gs.addColorStop(0, '#0f3a2a'); gs.addColorStop(1, '#06180f');
+  ctx.fillStyle = gs; rectRedondo(ctx, X, sy, AN, sh, 20 * s); ctx.fill();
+  ctx.strokeStyle = degradadoOro(ctx, X, sy, X + AN, sy + sh); ctx.lineWidth = 6 * s; ctx.stroke();
+  ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(232,196,120,0.75)'; ctx.font = `700 ${24 * s}px Cinzel`;
+  ctx.fillText('SUPERPODER INTELECTUAL', W / 2, sy + 32 * s);
+  ctx.font = `900 ${58 * s}px Cinzel`; ctx.fillStyle = degradadoOro(ctx, 400 * s, sy + 40 * s, 1100 * s, sy + 110 * s);
+  ctx.shadowColor = 'rgba(255,200,90,0.6)'; ctx.shadowBlur = 18 * s;
+  ctx.fillText(`⚡ ${C.superpoder} ⚡`, W / 2, sy + 82 * s);
+  ctx.shadowBlur = 0;
+
+  // idea principal
+  pergamino(ctx, X, iy, AN, ih, 18 * s, s);
+  ctx.fillStyle = '#6b4512'; ctx.font = `700 ${30 * s}px Cinzel`; ctx.textAlign = 'left';
+  ctx.fillText('✦ IDEA PRINCIPAL', 130 * s, iy + 44 * s);
+  ctx.fillStyle = '#2e1c0c'; ctx.font = `600 ${44 * s}px "Cormorant Garamond"`; ctx.textBaseline = 'alphabetic';
+  parrafo(ctx, C.idea, 130 * s, iy + 108 * s, AN - 80 * s, 54 * s);
+
+  // nivel de influencia
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(5,18,12,0.65)'; rectRedondo(ctx, X, ny, AN, nh, 18 * s); ctx.fill();
+  ctx.strokeStyle = 'rgba(217,179,108,0.5)'; ctx.lineWidth = 2.5 * s; ctx.stroke();
+  const col = AN / 4;
+  C.influencia.forEach(([ico, nom, val], i) => {
+    const x = X + col * i + col / 2;
+    ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
+    ctx.font = `${44 * s}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`; ctx.fillText(ico, x, ny + 44 * s);
+    ctx.fillStyle = '#e8c478'; ctx.font = `700 ${24 * s}px Cinzel`; ctx.fillText(nom, x, ny + 94 * s);
+    for (let k = 0; k < 5; k++) diamante(ctx, x - 64 * s + k * 32 * s, ny + 138 * s, 13 * s, k < val, s);
+    if (i) { ctx.strokeStyle = 'rgba(217,179,108,0.25)'; ctx.lineWidth = 2 * s; ctx.beginPath(); ctx.moveTo(X + col * i, ny + 20 * s); ctx.lineTo(X + col * i, ny + nh - 20 * s); ctx.stroke(); }
+  });
+  ctx.fillStyle = 'rgba(232,196,120,0.7)'; ctx.font = `700 ${22 * s}px Cinzel`; ctx.textAlign = 'center';
+  ctx.fillText('NIVEL DE INFLUENCIA  ·  CLAVES DEL PENSAMIENTO', W / 2, H - 92 * s);
+  return c;
+}
+
+function dibujarReversoProvisional(W, H) {
+  const [c, ctx] = lienzo(W, H);
+  const s = W / 1500, C = CONTENIDO, x = 90 * s, w = W - 180 * s, pad = 38 * s;
+  marcoTarjeta(ctx, W, H, s);
+  guilloche(ctx, W / 2, H / 2, W * 0.36, W * 0.04, 12, 36, 'rgba(232,196,120,0.07)', 1.4 * s);
+
+  pergamino(ctx, x, 86 * s, w, 128 * s, 22 * s, s);
+  ctx.fillStyle = '#3a2410'; ctx.font = `900 ${74 * s}px Cinzel`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(C.nombre, W / 2, 152 * s);
+  ctx.fillStyle = 'rgba(232,196,120,0.85)'; ctx.font = `italic 500 ${30 * s}px "Cormorant Garamond"`;
+  ctx.fillText(C.fechasDetalle, W / 2, 252 * s);
+
+  const top = 296 * s, gap = 22 * s, tituloH = 58 * s;
+  const medir = (fs) => {
+    ctx.font = `600 ${fs}px "Cormorant Garamond"`;
+    const lh = fs * 1.25;
+    const hs = C.secciones.map(([, , t]) => tituloH + partirLineas(ctx, t, w - pad * 2).length * lh + pad * 1.4);
+    ctx.font = `italic 600 ${fs + 2 * s}px "Cormorant Garamond"`;
+    const hd = 70 * s + partirLineas(ctx, C.desafio, w - pad * 2).length * (fs + 2 * s) * 1.2 + pad;
+    return { lh, hs, hd, total: hs.reduce((a, b) => a + b, 0) + gap * C.secciones.length + hd };
+  };
+  let fs = 50 * s, m = medir(fs);
+  while (m.total > H - 130 * s - top && fs > 26 * s) m = medir(fs -= s);
+  // si sobra espacio, se reparte entre las secciones para que respire
+  const extra = Math.max(0, H - 130 * s - top - m.total) / (C.secciones.length + 1);
+
+  let y = top + extra * 0.5;
+  C.secciones.forEach(([num, tit, txt], i) => {
+    const h = m.hs[i];
+    pergamino(ctx, x, y, w, h, 16 * s, s);
+    sello(ctx, x + pad + 24 * s, y + pad + 6 * s, 27 * s, num, (num.length > 2 ? 20 : 24) * s);
+    ctx.fillStyle = '#6b4512'; ctx.font = `700 ${35 * s}px Cinzel`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(tit, x + pad + 66 * s, y + pad + 8 * s);
+    ctx.fillStyle = '#2e1c0c'; ctx.font = `600 ${fs}px "Cormorant Garamond"`; ctx.textBaseline = 'alphabetic';
+    parrafo(ctx, txt, x + pad, y + pad + tituloH + fs * 0.55, w - pad * 2, m.lh);
+    y += h + gap + extra;
+  });
+
+  const gd = ctx.createLinearGradient(0, y, 0, y + m.hd);
+  gd.addColorStop(0, '#123f2e'); gd.addColorStop(1, '#06180f');
+  ctx.fillStyle = gd; rectRedondo(ctx, x, y, w, m.hd, 18 * s); ctx.fill();
+  ctx.strokeStyle = degradadoOro(ctx, x, y, x + w, y + m.hd); ctx.lineWidth = 6 * s; ctx.stroke();
+  ctx.fillStyle = '#e8c478'; ctx.font = `700 ${28 * s}px Cinzel`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText('🎖️  DESAFÍO · SI VIERA EL MUNDO DE HOY…', x + pad, y + 44 * s);
+  ctx.fillStyle = '#f3e3bb'; ctx.font = `italic 600 ${fs + 2 * s}px "Cormorant Garamond"`; ctx.textBaseline = 'alphabetic';
+  parrafo(ctx, C.desafio, x + pad, y + 100 * s, w - pad * 2, (fs + 2 * s) * 1.2);
+
+  ctx.fillStyle = 'rgba(232,196,120,0.7)'; ctx.font = `700 ${22 * s}px Cinzel`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('CLAVES DEL PENSAMIENTO  ·  LA ILUSTRACIÓN', W / 2, H - 92 * s);
+  return c;
+}
+
+/* =====================================================================
+   Escena
+   ===================================================================== */
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x050302);
+scene.fog = new THREE.FogExp2(0x080504, 0.038);
+
+const camera = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, 0.3, 120);
+
+// Entorno para reflejos: un "estudio" cálido hecho a mano
+function crearEntorno() {
+  const env = new THREE.Scene();
+  env.add(new THREE.Mesh(new THREE.SphereGeometry(30, 32, 16), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.035, 0.022, 0.014), side: THREE.BackSide })));
+  const panel = (w, h, pos, color) => {
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide }));
+    p.position.set(...pos); p.lookAt(0, 0, 0); env.add(p);
+  };
+  panel(10, 5, [1.5, 12, 7], new THREE.Color(7, 5.6, 4.0));
+  panel(3, 6, [-11, 3, 3], new THREE.Color(3.2, 1.5, 0.55));
+  panel(3, 6, [11, 2, -2], new THREE.Color(2.6, 1.2, 0.45));
+  panel(14, 3, [0, 5, -12], new THREE.Color(0.45, 0.65, 1.1));
+  panel(20, 20, [0, -8, 0], new THREE.Color(0.16, 0.08, 0.04));
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const tex = pmrem.fromScene(env, 0.02).texture;
+  pmrem.dispose();
+  return tex;
+}
+scene.environment = crearEntorno();
+
+const T = {}; // texturas
+const CARD_Y = 2.78;
+const objetivoCam = new THREE.Vector3(0, CARD_Y - 0.55, 0);
+
+/* ---------- Materiales compartidos ---------- */
+const matOro = new THREE.MeshStandardMaterial({ color: 0xe2b65c, metalness: 1, roughness: 0.22 });
+const matLaton = new THREE.MeshStandardMaterial({ color: 0xc49a48, metalness: 1, roughness: 0.38 });
+
+/* ---------- Luces ---------- */
+const luzPrincipal = new THREE.SpotLight(0xffe0b0, 0, 0, 0.42, 0.75, 2);
+luzPrincipal.position.set(1.6, 9.5, 5.2);
+luzPrincipal.target.position.set(0, CARD_Y - 0.4, 0);
+luzPrincipal.castShadow = true;
+luzPrincipal.shadow.mapSize.set(2048, 2048);
+luzPrincipal.shadow.bias = -0.0002;
+luzPrincipal.shadow.normalBias = 0.02;
+luzPrincipal.shadow.camera.near = 3;
+luzPrincipal.shadow.camera.far = 20;
+scene.add(luzPrincipal, luzPrincipal.target);
+
+const luzContra = new THREE.DirectionalLight(0x9fbcff, 0);
+luzContra.position.set(-4, 6, -7);
+scene.add(luzContra);
+
+const luzRelleno = new THREE.DirectionalLight(0xffc89a, 0);
+luzRelleno.position.set(-6, 2.5, 6);
+scene.add(luzRelleno);
+
+const luzAmbiente = new THREE.HemisphereLight(0x3a2a1c, 0x0a0503, 0);
+scene.add(luzAmbiente);
+
+const luzPedestal = new THREE.PointLight(0xffbf60, 0, 5, 2);
+luzPedestal.position.set(0, 0.95, 0.35);
+scene.add(luzPedestal);
+
+const INTENSIDADES = { principal: 150, contra: 1.6, relleno: 0.35, ambiente: 0.5, pedestal: 1.6 };
+
+/* =====================================================================
+   Construcción del mundo (después de cargar las fuentes)
+   ===================================================================== */
+const mundo = {};
+
+function construirMundo() {
+  [T.piso, T.pisoRug] = texturaPisoMadera();
+  T.caoba = texturaCaoba();
+  T.marmol = texturaMarmol();
+  T.cuero = texturaCuero();
+  T.paginas = texturaPaginas();
+  T.papelRug = texturaPapelRugosidad();
+  T.biblioteca = texturaBiblioteca();
+  T.suave = texturaSuave();
+  T.llama = texturaLlama();
+  T.tapa = texturaTapaLibro();
+  const cMoneda = texturaMoneda();
+  T.moneda = texturaDe(cMoneda);
+  T.monedaRelieve = texturaDe(cMoneda, { color: false });
+
+  /* ---- Piso / mesa ---- */
+  const piso = new THREE.Mesh(
+    new THREE.PlaneGeometry(60, 60),
+    new THREE.MeshPhysicalMaterial({ map: T.piso, roughnessMap: T.pisoRug, roughness: 1, clearcoat: 0.55, clearcoatRoughness: 0.22, envMapIntensity: 0.35 })
+  );
+  piso.rotation.x = -Math.PI / 2;
+  piso.receiveShadow = true;
+  scene.add(piso);
+
+  /* ---- Fondo: biblioteca desenfocada ---- */
+  const fondo = new THREE.Mesh(
+    new THREE.PlaneGeometry(40, 20),
+    new THREE.MeshBasicMaterial({ map: T.biblioteca, color: new THREE.Color(0.75, 0.62, 0.5) })
+  );
+  fondo.position.set(0, 9, -9);
+  scene.add(fondo);
+
+  /* ---- Pedestal ---- */
+  const pedestal = new THREE.Group();
+  const perfil = [
+    [0, 0], [1.08, 0], [1.08, 0.07], [1.02, 0.09], [1.0, 0.15], [0.9, 0.19], [0.72, 0.23], [0.58, 0.27],
+    [0.5, 0.31], [0.46, 0.36], [0.45, 0.48], [0.47, 0.52], [0.56, 0.56], [0.66, 0.58], [0.7, 0.62], [0, 0.62],
+  ].map(([x, y]) => new THREE.Vector2(x, y));
+  const cuerpo = new THREE.Mesh(
+    new THREE.LatheGeometry(perfil, 96),
+    new THREE.MeshPhysicalMaterial({ map: T.caoba, roughness: 0.42, clearcoat: 0.8, clearcoatRoughness: 0.12, envMapIntensity: 0.6 })
+  );
+  cuerpo.castShadow = cuerpo.receiveShadow = true;
+  pedestal.add(cuerpo);
+  const tapa = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.92, 0.92, 0.08, 96),
+    [
+      new THREE.MeshPhysicalMaterial({ color: 0x0c0c0e, roughness: 0.15, clearcoat: 1, envMapIntensity: 0.9 }),
+      new THREE.MeshPhysicalMaterial({ map: T.marmol, roughness: 0.12, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 0.9 }),
+      new THREE.MeshPhysicalMaterial({ color: 0x0c0c0e, roughness: 0.2 }),
+    ]
+  );
+  tapa.position.y = 0.66;
+  tapa.castShadow = tapa.receiveShadow = true;
+  pedestal.add(tapa);
+  const anillo = (r, y, tubo = 0.018) => {
+    const t = new THREE.Mesh(new THREE.TorusGeometry(r, tubo, 16, 128), matOro);
+    t.rotation.x = Math.PI / 2; t.position.y = y; t.castShadow = true; pedestal.add(t);
+  };
+  anillo(1.08, 0.07, 0.022); anillo(0.995, 0.15); anillo(0.455, 0.42, 0.014); anillo(0.92, 0.66, 0.024); anillo(0.92, 0.7, 0.012);
+  const incrustacion = new THREE.Mesh(
+    new THREE.RingGeometry(0.74, 0.765, 128),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, 1.6, 0.55), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  incrustacion.rotation.x = -Math.PI / 2; incrustacion.position.y = 0.702;
+  pedestal.add(incrustacion);
+  scene.add(pedestal);
+  mundo.incrustacion = incrustacion;
+
+  // onda expansiva (se usa en la intro)
+  const onda = new THREE.Mesh(
+    new THREE.RingGeometry(0.96, 1.0, 128),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 2, 0.8), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
+  );
+  onda.rotation.x = -Math.PI / 2; onda.position.y = 0.71;
+  scene.add(onda);
+  mundo.onda = onda;
+
+  /* ---- Velas ---- */
+  const matCera = new THREE.MeshPhysicalMaterial({ color: 0xefe1c2, roughness: 0.5, emissive: 0xff9a50, emissiveIntensity: 0.05, sheen: 0.6, sheenColor: 0xffd9a0 });
+  const crearVela = (x, z, alto, fase) => {
+    const g = new THREE.Group(); g.position.set(x, 0, z);
+    const plato = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.38, 0.05, 48), matLaton); plato.position.y = 0.025;
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.17, 0.14, 32), matLaton); base.position.y = 0.12;
+    const cera = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.105, alto, 32), matCera); cera.position.y = 0.19 + alto / 2;
+    const mecha = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.06, 6), new THREE.MeshBasicMaterial({ color: 0x1a1008 }));
+    const top = 0.19 + alto; mecha.position.y = top + 0.03;
+    [plato, base, cera].forEach((m) => { m.castShadow = true; m.receiveShadow = true; });
+    const llama = new THREE.Sprite(new THREE.SpriteMaterial({ map: T.llama, color: new THREE.Color(2.4, 1.7, 0.9), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+    llama.position.y = top + 0.12; llama.scale.set(0.09, 0.22, 1);
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: T.suave, color: new THREE.Color(1.3, 0.6, 0.2), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.55 }));
+    halo.position.y = top + 0.12; halo.scale.setScalar(1.3);
+    const luz = new THREE.PointLight(0xff9440, 0, 0, 2); luz.position.y = top + 0.18;
+    g.add(plato, base, cera, mecha, llama, halo, luz);
+    scene.add(g);
+    return { llama, halo, luz, fase, encendido: 0 };
+  };
+  mundo.velas = [
+    crearVela(-3.5, -1.9, 1.15, 0.0),
+    crearVela(3.7, -2.7, 1.55, 1.7),
+    crearVela(4.5, -1.5, 0.75, 3.1),
+  ];
+
+  /* ---- Libros ---- */
+  const matPaginas = new THREE.MeshStandardMaterial({ map: T.paginas, roughness: 0.85, envMapIntensity: 0.2 });
+  const matCantoDorado = new THREE.MeshStandardMaterial({ color: 0xd8ad55, metalness: 0.9, roughness: 0.35 });
+  const crearLibro = (an, gr, pr, color, tapaTex, dorado) => {
+    const cuero = new THREE.MeshStandardMaterial({ color, map: T.cuero, roughness: 0.6, envMapIntensity: 0.35 });
+    const tapaMat = tapaTex ? new THREE.MeshStandardMaterial({ map: tapaTex, roughness: 0.55, envMapIntensity: 0.35 }) : cuero;
+    const canto = dorado ? matCantoDorado : matPaginas;
+    const libro = new THREE.Mesh(new THREE.BoxGeometry(an, gr, pr), [canto, cuero, tapaMat, cuero, canto, canto]);
+    libro.castShadow = libro.receiveShadow = true;
+    return libro;
+  };
+  const pila = new THREE.Group();
+  const l1 = crearLibro(1.55, 0.22, 1.12, 0x3a2414); l1.position.y = 0.11;
+  const l2 = crearLibro(1.38, 0.18, 1.0, 0x1f3a2a, null, true); l2.position.y = 0.31; l2.rotation.y = 0.16;
+  const l3 = crearLibro(1.2, 0.15, 0.9, 0xffffff, T.tapa, true); l3.position.y = 0.475; l3.rotation.y = -0.12;
+  pila.add(l1, l2, l3);
+  pila.position.set(-3.05, 0, 0.75); pila.rotation.y = 0.42;
+  scene.add(pila);
+
+  /* ---- Monedas ---- */
+  const geoMoneda = new THREE.CylinderGeometry(0.17, 0.17, 0.028, 48);
+  const matCara = new THREE.MeshStandardMaterial({ map: T.moneda, bumpMap: T.monedaRelieve, bumpScale: 2.2, metalness: 1, roughness: 0.3 });
+  const matsMoneda = [new THREE.MeshStandardMaterial({ color: 0xc99a3e, metalness: 1, roughness: 0.42 }), matCara, matCara];
+  const N_ORBITA = 14;
+  const orbita = new THREE.InstancedMesh(geoMoneda, matsMoneda, N_ORBITA);
+  orbita.castShadow = true;
+  orbita.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  orbita.frustumCulled = false;
+  scene.add(orbita);
+  mundo.orbita = orbita;
+  mundo.N_ORBITA = N_ORBITA;
+
+  const sueltas = new THREE.InstancedMesh(geoMoneda, matsMoneda, 9);
+  sueltas.castShadow = sueltas.receiveShadow = true;
+  const d = new THREE.Object3D();
+  // [x, z, inclinación]: la altura se calcula para que el borde más bajo toque la mesa
+  const posSueltas = [[2.75, 1.25, 0.1], [3.15, 0.85, 0.3], [2.55, 0.55, 0.0], [3.6, 1.45, 0.12]];
+  posSueltas.forEach(([x, z, inc], i) => {
+    const y = 0.17 * Math.sin(inc) + 0.014 * Math.cos(inc) + 0.001;
+    d.position.set(x, y, z); d.rotation.set(inc, i, 0); d.updateMatrix(); sueltas.setMatrixAt(i, d.matrix);
+  });
+  for (let k = 0; k < 5; k++) { d.position.set(3.35, 0.014 + k * 0.029, 0.35); d.rotation.set(0, k * 0.7, 0); d.position.x += Math.sin(k * 2.1) * 0.012; d.updateMatrix(); sueltas.setMatrixAt(4 + k, d.matrix); }
+  scene.add(sueltas);
+
+  /* ---- Haz de luz volumétrico ---- */
+  const desde = luzPrincipal.position.clone(), hacia = new THREE.Vector3(0, 0.6, 0);
+  const largo = desde.distanceTo(hacia);
+  const geoHaz = new THREE.ConeGeometry(3.1, largo, 64, 1, true);
+  const haz = new THREE.Mesh(geoHaz, new THREE.ShaderMaterial({
+    uniforms: { uColor: { value: new THREE.Color(1.0, 0.82, 0.55) }, uOpacidad: { value: 0 }, uLargo: { value: largo }, uTiempo: { value: 0 } },
+    vertexShader: /* glsl */`
+      uniform float uLargo; varying float vH; varying vec3 vN; varying vec3 vV; varying vec3 vP;
+      void main(){
+        vH = position.y / uLargo + 0.5; vP = position;
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz);
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: /* glsl */`
+      uniform vec3 uColor; uniform float uOpacidad; uniform float uTiempo;
+      varying float vH; varying vec3 vN; varying vec3 vV; varying vec3 vP;
+      void main(){
+        float borde = pow(abs(dot(normalize(vN), normalize(vV))), 2.5);
+        float largo = smoothstep(0.0, 0.45, vH) * (1.0 - smoothstep(0.82, 1.0, vH));
+        float rayos = 0.75 + 0.25 * sin(atan(vP.x, vP.z) * 9.0 + uTiempo * 0.2) * sin(atan(vP.x, vP.z) * 5.0 - uTiempo * 0.13);
+        gl_FragColor = vec4(uColor * borde * largo * rayos * uOpacidad, 1.0);
+      }`,
+    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+  }));
+  haz.position.copy(desde).add(hacia).multiplyScalar(0.5);
+  haz.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), desde.clone().sub(hacia).normalize());
+  scene.add(haz);
+  mundo.haz = haz;
+
+  /* ---- Partículas ---- */
+  mundo.polvo = crearParticulas(520, { x: [-7, 7], y: [0, 8], z: [-5, 5] }, [0.03, 0.08], new THREE.Color(1.0, 0.8, 0.55), 0.55);
+  mundo.bokeh = crearParticulas(46, { x: [-14, 14], y: [1, 14], z: [-8.6, -8.2] }, [0.9, 2.2], new THREE.Color(1.0, 0.62, 0.28), 0.22, true);
+  mundo.chispas = crearParticulas(90, { x: [-2.2, 2.2], y: [CARD_Y - 2.4, CARD_Y + 2.4], z: [-1.2, 1.2] }, [0.04, 0.1], new THREE.Color(2.2, 1.6, 0.7), 0.9);
+
+  /* ---- Tarjeta ---- */
+  crearTarjeta();
+}
+
+function crearParticulas(n, caja, tam, color, opacidad, bokeh = false) {
+  const pos = new Float32Array(n * 3), size = new Float32Array(n), fase = new Float32Array(n), vel = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    pos[i * 3] = lerp(caja.x[0], caja.x[1], Math.random());
+    pos[i * 3 + 1] = lerp(caja.y[0], caja.y[1], Math.random());
+    pos[i * 3 + 2] = lerp(caja.z[0], caja.z[1], Math.random());
+    size[i] = lerp(tam[0], tam[1], Math.random());
+    fase[i] = Math.random() * TAU;
+    vel[i] = 0.4 + Math.random();
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('aTam', new THREE.BufferAttribute(size, 1));
+  geo.setAttribute('aFase', new THREE.BufferAttribute(fase, 1));
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { uTiempo: { value: 0 }, uPx: { value: renderer.getPixelRatio() }, uColor: { value: color }, uOpacidad: { value: 0 }, uVel: { value: bokeh ? 0.4 : 1.6 } },
+    vertexShader: /* glsl */`
+      attribute float aTam; attribute float aFase;
+      uniform float uTiempo; uniform float uPx; uniform float uVel; varying float vA;
+      void main(){
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        gl_PointSize = aTam * uPx * (420.0 / -mv.z);
+        vA = 0.35 + 0.65 * pow(0.5 + 0.5 * sin(uTiempo * uVel + aFase * 7.0), 2.0);
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: bokeh ? /* glsl */`
+      uniform vec3 uColor; uniform float uOpacidad; varying float vA;
+      void main(){
+        float d = length(gl_PointCoord - 0.5);
+        float a = smoothstep(0.5, 0.42, d) * (0.55 + 0.45 * smoothstep(0.2, 0.48, d));
+        gl_FragColor = vec4(uColor * a * uOpacidad * (0.6 + 0.4 * vA), 1.0);
+      }` : /* glsl */`
+      uniform vec3 uColor; uniform float uOpacidad; varying float vA;
+      void main(){
+        float d = length(gl_PointCoord - 0.5);
+        float a = smoothstep(0.5, 0.0, d); a *= a;
+        gl_FragColor = vec4(uColor * a * uOpacidad * vA, 1.0);
+      }`,
+    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+  });
+  const puntos = new THREE.Points(geo, mat);
+  puntos.frustumCulled = false;
+  puntos.userData = { caja, vel, n };
+  scene.add(puntos);
+  return puntos;
+}
+
+/* =====================================================================
+   La tarjeta
+   ===================================================================== */
+const tarjeta = {
+  raiz: new THREE.Group(),   // flota
+  pivote: new THREE.Group(), // gira
+  proporcion: CONFIG.proporcion,
+  frenteProvisional: true,
+  reversoProvisional: true,
+};
+tarjeta.raiz.add(tarjeta.pivote);
+
+const holoUniforms = { uTiempo: { value: 0 }, uIntensidad: { value: 0 }, uBarrido: { value: -1 } };
+const matHolo = new THREE.ShaderMaterial({
+  uniforms: holoUniforms,
+  vertexShader: /* glsl */`
+    varying vec2 vUv; varying vec3 vPos; varying vec3 vNormalW; varying vec3 vDerecha; varying vec3 vArriba;
+    void main(){
+      vUv = uv;
+      vec4 wp = modelMatrix * vec4(position, 1.0);
+      vPos = wp.xyz;
+      mat3 m = mat3(modelMatrix);
+      vNormalW = normalize(m * vec3(0.0, 0.0, 1.0));
+      vDerecha = normalize(m * vec3(1.0, 0.0, 0.0));
+      vArriba = normalize(m * vec3(0.0, 1.0, 0.0));
+      gl_Position = projectionMatrix * viewMatrix * wp;
+    }`,
+  fragmentShader: /* glsl */`
+    uniform float uTiempo; uniform float uIntensidad; uniform float uBarrido;
+    varying vec2 vUv; varying vec3 vPos; varying vec3 vNormalW; varying vec3 vDerecha; varying vec3 vArriba;
+    float hash(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+    void main(){
+      vec3 V = normalize(cameraPosition - vPos);
+      float sx = dot(V, vDerecha), sy = dot(V, vArriba);
+      float fres = 1.0 - abs(dot(V, vNormalW));
+      vec2 p = vUv;
+      float fase = (p.x * 0.8 + p.y * 1.1) + sx * 1.8 + sy * 1.2;
+      vec3 arco = 0.5 + 0.5 * cos(6.28318 * (fase + vec3(0.0, 0.33, 0.67)));
+      float bandas = smoothstep(0.4, 1.0, 0.5 + 0.5 * sin((p.x - p.y * 0.7) * 22.0 + sx * 16.0 - sy * 10.0));
+      vec2 g = p * vec2(90.0, 126.0); vec2 id = floor(g); vec2 f = fract(g) - 0.5;
+      float h = hash(id);
+      float b = 0.5 + 0.5 * sin(h * 80.0 + sx * 38.0 + sy * 27.0 + uTiempo * 1.5);
+      float chispa = step(0.9, h) * smoothstep(0.3, 0.0, length(f)) * pow(b, 10.0);
+      float diag = (p.x + p.y) * 0.5;
+      float reflejo = exp(-pow((diag - (0.5 + sx * 1.3 - sy * 0.9)) * 4.0, 2.0));
+      float barrido = exp(-pow((diag - uBarrido) * 13.0, 2.0));
+      vec3 col = arco * (0.015 + 0.055 * bandas) * (0.5 + fres * 2.0)
+               + vec3(1.0, 0.93, 0.82) * (reflejo * 0.04 + barrido * 0.12)
+               + vec3(1.0, 0.94, 0.82) * chispa * 0.9;
+      gl_FragColor = vec4(col * uIntensidad, 1.0);
+    }`,
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+});
+
+const matFrente = new THREE.MeshPhysicalMaterial({ roughness: 1, clearcoat: 0.7, clearcoatRoughness: 0.1, envMapIntensity: 0.55 });
+const matReverso = new THREE.MeshPhysicalMaterial({ roughness: 1, clearcoat: 0.7, clearcoatRoughness: 0.1, envMapIntensity: 0.55 });
+const matCanto = new THREE.MeshStandardMaterial({ color: 0x1a120a, roughness: 0.6 });
+
+const mallas = {
+  cuerpo: new THREE.Mesh(undefined, [matCanto, matOro]),
+  frente: new THREE.Mesh(undefined, matFrente),
+  reverso: new THREE.Mesh(undefined, matReverso),
+  holo: new THREE.Mesh(undefined, matHolo),
+};
+
+function crearTarjeta() {
+  matFrente.roughnessMap = T.papelRug;
+  matReverso.roughnessMap = T.papelRug;
+  mallas.cuerpo.castShadow = true;
+  mallas.frente.castShadow = true;
+  mallas.holo.renderOrder = 2;
+  tarjeta.pivote.add(mallas.cuerpo, mallas.frente, mallas.reverso, mallas.holo);
+
+  // aura detrás de la tarjeta
+  const aura = new THREE.Sprite(new THREE.SpriteMaterial({ map: T.suave, color: new THREE.Color(1.0, 0.7, 0.32), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0 }));
+  aura.position.z = -0.6;
+  tarjeta.raiz.add(aura);
+  tarjeta.aura = aura;
+
+  tarjeta.raiz.position.set(0, CARD_Y, 0);
+  scene.add(tarjeta.raiz);
+  geometriaTarjeta(CONFIG.proporcion);
+}
+
+function dimensionesTarjeta(prop) {
+  let H = CONFIG.altoTarjeta, W = H / prop;
+  if (W > 3.4) { W = 3.4; H = W * prop; }
+  return { W, H };
+}
+
+function geometriaTarjeta(prop) {
+  tarjeta.proporcion = prop;
+  const { W, H } = dimensionesTarjeta(prop);
+  const r = Math.min(W, H) * 0.05, t = CONFIG.grosor;
+  const forma = new THREE.Shape();
+  const x = -W / 2, y = -H / 2;
+  forma.moveTo(x + r, y);
+  forma.lineTo(x + W - r, y); forma.quadraticCurveTo(x + W, y, x + W, y + r);
+  forma.lineTo(x + W, y + H - r); forma.quadraticCurveTo(x + W, y + H, x + W - r, y + H);
+  forma.lineTo(x + r, y + H); forma.quadraticCurveTo(x, y + H, x, y + H - r);
+  forma.lineTo(x, y + r); forma.quadraticCurveTo(x, y, x + r, y);
+
+  const cuerpo = new THREE.ExtrudeGeometry(forma, { depth: t, bevelEnabled: false, curveSegments: 14 });
+  cuerpo.translate(0, 0, -t / 2);
+  const cara = new THREE.ShapeGeometry(forma, 14);
+  const uv = cara.attributes.uv, p = cara.attributes.position;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, (p.getX(i) + W / 2) / W, (p.getY(i) + H / 2) / H);
+
+  Object.values(mallas).forEach((m) => m.geometry && m.geometry.dispose());
+  mallas.cuerpo.geometry = cuerpo;
+  mallas.frente.geometry = cara;
+  mallas.reverso.geometry = cara;
+  mallas.holo.geometry = cara;
+  mallas.frente.position.z = t / 2 + 0.0008;
+  mallas.holo.position.z = t / 2 + 0.0018;
+  mallas.reverso.position.z = -t / 2 - 0.0008;
+  mallas.reverso.rotation.y = Math.PI;
+  tarjeta.aura.scale.set(W * 2.6, H * 2.0, 1);
+  tarjeta.W = W; tarjeta.H = H;
+
+  // Si aún se usan los diseños provisionales, se redibujan con la nueva proporción
+  const ancho = Math.min(2048, renderer.capabilities.maxTextureSize), alto = Math.round(ancho * prop);
+  if (tarjeta.frenteProvisional) ponerMapa(matFrente, texturaDe(dibujarFrenteProvisional(ancho, alto)));
+  if (tarjeta.reversoProvisional) ponerMapa(matReverso, texturaDe(dibujarReversoProvisional(ancho, alto)));
+  ajustarCamara();
+}
+
+function ponerMapa(mat, tex) {
+  if (mat.map) mat.map.dispose();
+  mat.map = tex;
+  mat.needsUpdate = true;
+}
+
+function aplicarImagen(img, lado) {
+  const tex = new THREE.Texture(img);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = maxAniso;
+  tex.needsUpdate = true;
+  if (lado === 'frente') {
+    tarjeta.frenteProvisional = false;
+    ponerMapa(matFrente, tex);
+    geometriaTarjeta(img.naturalHeight / img.naturalWidth);
+  } else {
+    tarjeta.reversoProvisional = false;
+    ponerMapa(matReverso, tex);
+  }
+}
+
+const cargarImagen = (src) => new Promise((ok, mal) => { const img = new Image(); img.onload = () => ok(img); img.onerror = mal; img.src = src; });
+async function primeraImagen(lista) {
+  for (const src of lista) { try { return await cargarImagen(src); } catch { /* sigue con la siguiente */ } }
+  return null;
+}
+async function imagenesIniciales() {
+  const incrustadas = window.TARJETA || {};
+  // Abriendo el archivo con doble clic (file://) el navegador bloquea leer imágenes sueltas en WebGL,
+  // por eso ahí solo se usan las incrustadas en assets/imagenes.js
+  const servidor = location.protocol !== 'file:';
+  const retrato = incrustadas.retrato ? await cargarImagen(incrustadas.retrato).catch(() => null) : servidor ? await primeraImagen(CONFIG.retrato) : null;
+  if (retrato) { tarjeta.retrato = retrato; geometriaTarjeta(tarjeta.proporcion); }
+  for (const lado of ['frente', 'reverso']) {
+    let img = null;
+    if (incrustadas[lado]) img = await cargarImagen(incrustadas[lado]).catch(() => null);
+    else if (servidor) img = await primeraImagen(CONFIG[lado]);
+    if (img) aplicarImagen(img, lado);
+  }
+}
+
+/* =====================================================================
+   Post-procesado
+   ===================================================================== */
+const objetivoRender = new THREE.WebGLRenderTarget(innerWidth, innerHeight, { type: THREE.HalfFloatType, samples: 4 });
+const composer = new EffectComposer(renderer, objetivoRender);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.35, 0.6, 0.92);
+composer.addPass(bloom);
+const pasoFinal = new ShaderPass({
+  uniforms: { tDiffuse: { value: null }, uTiempo: { value: 0 }, uOscuro: { value: 1 }, uLectura: { value: 0 } },
+  vertexShader: /* glsl */`varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: /* glsl */`
+    uniform sampler2D tDiffuse; uniform float uTiempo; uniform float uOscuro; uniform float uLectura; varying vec2 vUv;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+    void main(){
+      vec2 c = vUv - 0.5; float d = length(c);
+      vec2 off = c * d * 0.007 * (1.0 - uLectura);
+      vec3 col = vec3(texture2D(tDiffuse, vUv + off).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv - off).b);
+      float vig = smoothstep(0.92, 0.22, length(c * vec2(1.0, 1.2)));
+      col *= mix(mix(0.3, 0.75, uLectura), 1.0, vig);
+      float n = hash(vUv * vec2(1931.0, 1087.0) + fract(uTiempo * 7.0) * 113.0) - 0.5;
+      col *= 1.0 + n * 0.06 * (1.0 - uLectura * 0.7);
+      col *= 1.0 - uOscuro;
+      gl_FragColor = vec4(col, 1.0);
+    }`,
+});
+composer.addPass(pasoFinal);
+composer.addPass(new OutputPass());
+
+/* =====================================================================
+   Cámara y tamaño
+   ===================================================================== */
+let distanciaBase = 10;
+function ajustarCamara() {
+  const aspecto = innerWidth / innerHeight;
+  const tanMitad = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const W = tarjeta.W || 2.5, H = tarjeta.H || 3.5;
+  const dV = (H * 1.75) / 2 / tanMitad;
+  const dH = (W * 1.7) / 2 / (tanMitad * aspecto);
+  distanciaBase = Math.max(dV, dH);
+}
+function redimensionar() {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
+  bloom.resolution.set(innerWidth, innerHeight);
+  ajustarCamara();
+}
+addEventListener('resize', redimensionar);
+
+/* =====================================================================
+   Interacción
+   ===================================================================== */
+const estado = {
+  objetivoY: 0, rotY: 0, velY: 0,
+  rotX: 0, velX: 0,
+  tiltX: 0, tiltY: 0,
+  px: 0, py: 0, cpx: 0, cpy: 0,
+  presionando: false, arrastrando: false, movido: 0,
+  ultimo: { x: 0, y: 0, t: 0 },
+  autoGiro: false, holo: CONFIG.holograma,
+  zoom: 1, zoomObj: 1,
+  volteoT: -10,
+  introInicio: 0, listo: false,
+  punteros: new Map(), pellizco: 0, medio: null,
+  foco: new THREE.Vector2(), focoObj: new THREE.Vector2(), dist: 10,
+  ultimoToque: { t: 0, x: 0, y: 0 }, temporizadorVolteo: 0,
+  ancla: null, // punto de la tarjeta que debe quedarse bajo el cursor mientras dura el zoom
+  velPan: { x: 0, y: 0 }, inercia: null, // desplazamiento con inercia al soltar
+  calidad: { pr: Math.min(window.devicePixelRatio, 2), max: Math.min(window.devicePixelRatio, 2), ft: 1 / 60, revisar: 0 },
+};
+const INTRO = 4.6;
+const lienzoEscena = renderer.domElement;
+const reloj = new THREE.Clock(false);
+
+const introTerminada = () => reloj.getElapsedTime() - estado.introInicio > INTRO - 0.6;
+
+function voltear() {
+  if (!introTerminada()) return;
+  estado.objetivoY = Math.round(estado.objetivoY / Math.PI) * Math.PI + Math.PI;
+  estado.volteoT = reloj.getElapsedTime();
+}
+
+/* ---------- Zoom ---------- */
+const ZOOM_MIN = 0.16, ZOOM_MAX = 1.35, ZOOM_LECTURA = 0.5;
+// 0 = vista general, 1 = modo lectura: cámara de frente y tarjeta quieta
+const factorLectura = (z) => clamp01((1 - z) / (1 - ZOOM_LECTURA));
+const rayo = new THREE.Raycaster(), planoTarjeta = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+const ndc = new THREE.Vector2(), puntoPlano = new THREE.Vector3();
+
+const camaraVirtual = new THREE.PerspectiveCamera();
+
+// Coloca una cámara según el zoom y el foco. La usa el bucle y también el cálculo del zoom.
+function posicionCamara(cam, zoom, fx, fy, cardY, pCam = 1, cpx = 0, cpy = 0) {
+  const lectura = factorLectura(zoom), quieto = 1 - lectura;
+  const dist = distanciaBase * zoom * (1 + (1 - pCam) * 0.85);
+  const ty = lerp(objetivoCam.y, cardY, lectura) + fy;
+  const yaw = cpx * 0.07 * quieto + (1 - pCam) * -0.55;
+  const alto = (0.6 + cpy * 0.3) * quieto + (1 - pCam) * 2.6;
+  cam.position.set(fx + Math.sin(yaw) * dist, ty + alto, Math.cos(yaw) * dist);
+  cam.lookAt(fx, ty + (1 - pCam) * 0.6, 0);
+  cam.updateMatrixWorld();
+  return dist;
+}
+
+function puntoEnTarjeta(cx, cy, cam = camera) {
+  ndc.set((cx / innerWidth) * 2 - 1, -(cy / innerHeight) * 2 + 1);
+  rayo.setFromCamera(ndc, cam);
+  if (!rayo.ray.intersectPlane(planoTarjeta, puntoPlano)) return null;
+  return { x: puntoPlano.x, y: puntoPlano.y - tarjeta.raiz.position.y };
+}
+function limitar(v, zoom) {
+  const f = factorLectura(zoom), mx = (tarjeta.W / 2) * f, my = (tarjeta.H / 2) * f;
+  v.x = THREE.MathUtils.clamp(v.x, -mx, mx);
+  v.y = THREE.MathUtils.clamp(v.y, -my, my);
+}
+const limitarFoco = () => limitar(estado.focoObj, estado.zoomObj);
+function prepararCamaraVirtual() {
+  const cam = camaraVirtual;
+  cam.fov = camera.fov; cam.aspect = camera.aspect; cam.near = camera.near; cam.far = camera.far;
+  cam.updateProjectionMatrix();
+  return cam;
+}
+// Ajusta el foco para que el punto q de la tarjeta quede bajo (cx, cy) con este zoom
+function resolverFoco(foco, zoom, cx, cy, q, pasos = 3) {
+  const cam = camaraVirtual;
+  for (let i = 0; i < pasos; i++) {
+    posicionCamara(cam, zoom, foco.x, foco.y, CARD_Y);
+    const q2 = puntoEnTarjeta(cx, cy, cam);
+    if (!q2) break;
+    foco.x += q.x - q2.x; foco.y += q.y - q2.y;
+  }
+}
+// Acerca o aleja manteniendo fijo el punto de la tarjeta que está bajo (cx, cy)
+function zoomEn(cx, cy, factor) {
+  if (!introTerminada()) return;
+  const z1 = estado.zoomObj, z2 = THREE.MathUtils.clamp(z1 * factor, ZOOM_MIN, ZOOM_MAX);
+  // se calcula con la cámara en su posición final, no con la que todavía se está moviendo
+  const cam = prepararCamaraVirtual(), f = estado.focoObj;
+  posicionCamara(cam, z1, f.x, f.y, CARD_Y);
+  const q = puntoEnTarjeta(cx, cy, cam);
+  estado.zoomObj = z2;
+  if (q && z2 < 1) {
+    resolverFoco(f, z2, cx, cy, q, 4);
+    // mientras la cámara llega, el bucle mantiene este punto fijo bajo el cursor
+    estado.ancla = { cx, cy, q };
+  } else estado.ancla = null;
+  limitarFoco();
+}
+function restablecerZoom() { estado.zoomObj = 1; estado.focoObj.set(0, 0); estado.ancla = null; }
+function desplazar(dx, dy, inmediato = true) {
+  const mundoPorPixel = (2 * estado.dist * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) / innerHeight;
+  if (estado.ancla) { estado.focoObj.copy(estado.foco); estado.zoomObj = estado.zoom; estado.ancla = null; }
+  estado.focoObj.x -= dx * mundoPorPixel;
+  estado.focoObj.y += dy * mundoPorPixel;
+  limitarFoco();
+  // la vista sigue al cursor sin retraso, como un mapa. Con las flechas se desliza suave.
+  if (inmediato) estado.foco.copy(estado.focoObj);
+}
+const enLectura = () => factorLectura(estado.zoomObj) > 0.2;
+
+function dobleToque(cx, cy) {
+  clearTimeout(estado.temporizadorVolteo);
+  if (estado.zoomObj > 0.7) zoomEn(cx, cy, 0.34 / estado.zoomObj);
+  else restablecerZoom();
+}
+
+lienzoEscena.addEventListener('pointerdown', (e) => {
+  try { lienzoEscena.setPointerCapture(e.pointerId); } catch { /* puntero ya liberado */ }
+  estado.punteros.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (estado.punteros.size === 2) { estado.pellizco = distanciaPunteros(); estado.medio = medioPunteros(); estado.arrastrando = true; return; }
+  estado.presionando = true; estado.arrastrando = false; estado.movido = 0;
+  estado.ultimo = { x: e.clientX, y: e.clientY, t: performance.now() };
+  estado.inercia = null; estado.velPan.x = estado.velPan.y = 0;
+});
+lienzoEscena.addEventListener('pointermove', (e) => {
+  estado.px = (e.clientX / innerWidth) * 2 - 1;
+  estado.py = -((e.clientY / innerHeight) * 2 - 1);
+  if (estado.punteros.has(e.pointerId)) estado.punteros.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (estado.punteros.size === 2) {
+    const d = distanciaPunteros(), m = medioPunteros();
+    if (estado.pellizco > 0) zoomEn(m.x, m.y, estado.pellizco / d);
+    if (estado.medio && enLectura()) desplazar(m.x - estado.medio.x, m.y - estado.medio.y);
+    estado.pellizco = d; estado.medio = m;
+    return;
+  }
+  if (!estado.presionando || !introTerminada()) return;
+  const dx = e.clientX - estado.ultimo.x, dy = e.clientY - estado.ultimo.y;
+  const ahora = performance.now(), dt = Math.max((ahora - estado.ultimo.t) / 1000, 0.008);
+  if (!estado.arrastrando) {
+    // se espera a moverse un poco para distinguir clic de arrastre, pero sin perder ese tramo
+    if (Math.abs(dx) + Math.abs(dy) <= 6) return;
+    estado.arrastrando = true; lienzoEscena.classList.add('arrastrando');
+  }
+  estado.movido += Math.abs(dx) + Math.abs(dy);
+  if (estado.arrastrando) {
+    if (enLectura() || e.buttons === 2) {
+      desplazar(dx, dy);
+      estado.velPan.x = lerp(estado.velPan.x, dx / dt, 0.4);
+      estado.velPan.y = lerp(estado.velPan.y, dy / dt, 0.4);
+    }
+    else {
+      const k = 0.011;
+      estado.rotY += dx * k;
+      estado.velY = lerp(estado.velY, (dx * k) / dt, 0.5);
+      estado.rotX = THREE.MathUtils.clamp(estado.rotX + dy * 0.006, -0.6, 0.6);
+    }
+  }
+  estado.ultimo = { x: e.clientX, y: e.clientY, t: ahora };
+});
+function soltarPuntero(e) {
+  estado.punteros.delete(e.pointerId);
+  if (estado.punteros.size > 0) return;
+  if (estado.presionando && !estado.arrastrando) {
+    const ahora = performance.now(), u = estado.ultimoToque;
+    if (ahora - u.t < 320 && Math.hypot(e.clientX - u.x, e.clientY - u.y) < 30) {
+      dobleToque(e.clientX, e.clientY);
+      estado.ultimoToque = { t: 0, x: 0, y: 0 };
+    } else {
+      estado.ultimoToque = { t: ahora, x: e.clientX, y: e.clientY };
+      // un clic voltea solo en la vista general, y espera un instante por si es doble clic
+      if (!enLectura()) estado.temporizadorVolteo = setTimeout(voltear, 320);
+    }
+  } else if (estado.arrastrando && enLectura()) {
+    // si se soltó en movimiento, la vista sigue deslizándose y frena sola
+    const reciente = performance.now() - estado.ultimo.t < 90;
+    const v = estado.velPan, lim = 2500;
+    if (reciente && Math.hypot(v.x, v.y) > 60) estado.inercia = { x: THREE.MathUtils.clamp(v.x, -lim, lim), y: THREE.MathUtils.clamp(v.y, -lim, lim) };
+  } else if (estado.arrastrando && !enLectura()) {
+    estado.velY = THREE.MathUtils.clamp(estado.velY, -14, 14);
+    estado.objetivoY = estado.autoGiro ? estado.rotY : Math.round((estado.rotY + estado.velY * 0.16) / Math.PI) * Math.PI;
+  }
+  estado.presionando = false; estado.arrastrando = false; estado.pellizco = 0; estado.medio = null;
+  lienzoEscena.classList.remove('arrastrando');
+}
+lienzoEscena.addEventListener('pointerup', soltarPuntero);
+lienzoEscena.addEventListener('pointercancel', soltarPuntero);
+lienzoEscena.addEventListener('pointerleave', () => { if (!estado.presionando) { estado.px = 0; estado.py = 0; } });
+lienzoEscena.addEventListener('contextmenu', (e) => e.preventDefault());
+lienzoEscena.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  // el trackpad manda muchos pasos pequeños y el mouse pocos grandes. Ambos dan un zoom proporcional.
+  const escala = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? innerHeight : 1;
+  const d = THREE.MathUtils.clamp(e.deltaY * escala, -240, 240);
+  estado.inercia = null;
+  zoomEn(e.clientX, e.clientY, Math.exp(d * 0.0013));
+}, { passive: false });
+function distanciaPunteros() {
+  const [a, b] = [...estado.punteros.values()];
+  return Math.hypot(a.x - b.x, a.y - b.y) || 1;
+}
+function medioPunteros() {
+  const [a, b] = [...estado.punteros.values()];
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+}
+
+/* ---------- Botones ---------- */
+const $ = (s) => document.querySelector(s);
+const btnAuto = $('#btnAuto'), btnHolo = $('#btnHolo');
+
+function alternarAuto() {
+  estado.autoGiro = !estado.autoGiro;
+  btnAuto.classList.toggle('activo', estado.autoGiro);
+  if (!estado.autoGiro) estado.objetivoY = Math.round(estado.rotY / Math.PI) * Math.PI;
+}
+function alternarHolo() { estado.holo = !estado.holo; btnHolo.classList.toggle('activo', estado.holo); }
+function pantallaCompleta() {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen?.();
+}
+$('#btnVoltear').addEventListener('click', voltear);
+btnAuto.addEventListener('click', alternarAuto);
+btnHolo.addEventListener('click', alternarHolo);
+$('#btnPantalla').addEventListener('click', pantallaCompleta);
+$('#btnAcercar').addEventListener('click', () => zoomEn(innerWidth / 2, innerHeight / 2, 0.7));
+$('#btnAlejar').addEventListener('click', () => zoomEn(innerWidth / 2, innerHeight / 2, 1 / 0.7));
+$('#btnRestablecer').addEventListener('click', restablecerZoom);
+
+const panelFuentes = $('#panelFuentes');
+$('#listaFuentes').innerHTML = FUENTES.map(({ seccion, items }) => `<h3>${seccion}</h3><ul>${items.map(([t, url, d]) =>
+  `<li>${url ? `<a href="${url}" target="_blank" rel="noopener">${t}</a>` : `<b>${t}</b>`}<span>${d}</span></li>`).join('')}</ul>`).join('');
+const alternarFuentes = (ver) => panelFuentes.classList.toggle('oculto', !ver);
+$('#btnFuentes').addEventListener('click', () => alternarFuentes(panelFuentes.classList.contains('oculto')));
+$('#cerrarFuentes').addEventListener('click', () => alternarFuentes(false));
+panelFuentes.addEventListener('click', (e) => { if (e.target === panelFuentes) alternarFuentes(false); });
+addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  if (k === 'escape') { alternarFuentes(false); return; }
+  if (k === 'f') { alternarFuentes(panelFuentes.classList.contains('oculto')); return; }
+  if (!panelFuentes.classList.contains('oculto')) return;
+  if (k === ' ' || e.code === 'Space') { e.preventDefault(); voltear(); }
+  else if (k === 'a') alternarAuto();
+  else if (k === 'b') alternarHolo();
+  else if (k === 'p') pantallaCompleta();
+  else if (k === 'h') document.body.classList.toggle('sin-hud');
+  else if (k === 'r') reiniciarIntro();
+  else if (k === '+' || k === '=') zoomEn(innerWidth / 2, innerHeight / 2, 0.75);
+  else if (k === '-') zoomEn(innerWidth / 2, innerHeight / 2, 1 / 0.75);
+  else if (k === '0') restablecerZoom();
+  else if (enLectura() && k.startsWith('arrow')) {
+    e.preventDefault();
+    const p = 60, m = { arrowleft: [p, 0], arrowright: [-p, 0], arrowup: [0, p], arrowdown: [0, -p] }[k];
+    desplazar(m[0], m[1], false);
+  }
+});
+
+const tactil = matchMedia('(pointer: coarse)').matches;
+$('#guiaTexto').innerHTML = tactil
+  ? '<b>Desliza</b> para moverte · <b>Pellizca</b> para acercar · <b>Toca dos veces</b> para ver la tarjeta completa'
+  : '<b>Arrastra</b> o usa las flechas para moverte · <b>Rueda</b> para acercar · <b>Doble clic</b> o <kbd>0</kbd> para ver la tarjeta completa';
+$('#ayuda').innerHTML = tactil
+  ? 'Desliza para girar · Toca para voltear<br>Pellizca o toca dos veces para leer de cerca'
+  : 'Arrastra para girar · Clic para voltear<br>Rueda o doble clic para leer de cerca · Con zoom, arrastra para moverte<br><kbd>+</kbd> <kbd>−</kbd> <kbd>0</kbd> zoom &nbsp;<kbd>H</kbd> ocultar &nbsp;<kbd>R</kbd> repetir animación';
+
+function reiniciarIntro() {
+  estado.introInicio = reloj.getElapsedTime();
+  estado.rotY = estado.objetivoY = 0; estado.velY = 0; estado.rotX = 0;
+  restablecerZoom();
+  estado.zoom = 1; estado.foco.set(0, 0);
+  document.body.classList.remove('leyendo');
+  mundo.velas.forEach((v) => (v.encendido = 0));
+  document.body.classList.add('intro');
+}
+
+/* =====================================================================
+   Bucle de animación
+   ===================================================================== */
+const dummy = new THREE.Object3D();
+
+function animar() {
+  requestAnimationFrame(animar);
+  const dt = Math.min(reloj.getDelta(), 0.05);
+  const t = reloj.getElapsedTime();
+  const ti = t - estado.introInicio;
+
+  // ---- Progreso de la intro ----
+  const pOscuro = clamp01(ti / 1.2);
+  const pLuz = clamp01((ti - 0.3) / 2.2);
+  const pCam = easeInOutCubic(clamp01(ti / 4.0));
+  const pTarjeta = easeOutCubic(clamp01((ti - 0.5) / 3.0));
+  const pMonedas = easeOutCubic(clamp01((ti - 0.2) / 3.6));
+  const golpe = Math.exp(-Math.pow((ti - 3.45) * 3.2, 2));
+  if (ti > INTRO - 0.6 && document.body.classList.contains('intro')) document.body.classList.remove('intro');
+
+  pasoFinal.uniforms.uOscuro.value = 1 - easeOutCubic(pOscuro);
+  pasoFinal.uniforms.uTiempo.value = t;
+
+  // ---- Luces ----
+  const l = pLuz * pLuz;
+  luzPrincipal.intensity = INTENSIDADES.principal * l;
+  luzContra.intensity = INTENSIDADES.contra * l;
+  luzRelleno.intensity = INTENSIDADES.relleno * l;
+  luzAmbiente.intensity = INTENSIDADES.ambiente * l;
+  luzPedestal.intensity = INTENSIDADES.pedestal * clamp01((ti - 2.6) / 1.2) * (0.85 + 0.15 * Math.sin(t * 2.1)) + golpe * 14;
+  mundo.haz.material.uniforms.uOpacidad.value = 0.085 * l;
+  mundo.haz.material.uniforms.uTiempo.value = t;
+  mundo.incrustacion.material.opacity = clamp01((ti - 2.8) / 1.0) * (0.75 + 0.25 * Math.sin(t * 1.7));
+
+  mundo.velas.forEach((v, i) => {
+    const objetivo = ti > 0.6 + i * 0.35 ? 1 : 0;
+    v.encendido = lerp(v.encendido, objetivo, suave(4, dt));
+    const f = 0.84 + 0.09 * Math.sin(t * 13 + v.fase) + 0.06 * Math.sin(t * 7.3 + v.fase * 2) + 0.05 * Math.sin(t * 23.7 + v.fase * 3);
+    v.luz.intensity = 5.5 * f * v.encendido;
+    v.llama.scale.set(0.09 * (0.9 + 0.1 * f), 0.22 * (0.8 + 0.25 * f) * v.encendido, 1);
+    v.llama.position.x = Math.sin(t * 3.1 + v.fase) * 0.006;
+    v.llama.material.opacity = v.encendido;
+    v.halo.material.opacity = 0.5 * f * v.encendido;
+  });
+
+  // ---- Rotación de la tarjeta ----
+  if (!estado.arrastrando) {
+    if (estado.autoGiro) estado.objetivoY += dt * 0.6;
+    const k = 34, c = 8.5;
+    estado.velY += (k * (estado.objetivoY - estado.rotY) - c * estado.velY) * dt;
+    estado.rotY += estado.velY * dt;
+    estado.velX += (30 * (0 - estado.rotX) - 9 * estado.velX) * dt;
+    estado.rotX += estado.velX * dt;
+  }
+  // ---- Zoom: se calcula antes para que la tarjeta se quede quieta al leer ----
+  // el zoom avanza en proporción constante: se siente igual de suave lejos y cerca
+  estado.zoom = Math.exp(lerp(Math.log(estado.zoom), Math.log(estado.zoomObj), suave(9, dt)));
+  if (Math.abs(estado.zoom / estado.zoomObj - 1) < 0.0015) estado.zoom = estado.zoomObj;
+  if (estado.ancla && !estado.arrastrando) {
+    const { cx, cy, q } = estado.ancla;
+    prepararCamaraVirtual();
+    resolverFoco(estado.foco, estado.zoom, cx, cy, q, 2);
+    limitar(estado.foco, estado.zoom);
+    if (estado.zoom === estado.zoomObj) { estado.foco.copy(estado.focoObj); estado.ancla = null; }
+  } else if (estado.inercia && !estado.presionando) {
+    const v = estado.inercia;
+    const antes = estado.focoObj.clone();
+    desplazar(v.x * dt, v.y * dt);
+    // al chocar con el borde de la tarjeta se frena en ese eje
+    if (Math.abs(estado.focoObj.x - antes.x) < 1e-6) v.x = 0;
+    if (Math.abs(estado.focoObj.y - antes.y) < 1e-6) v.y = 0;
+    const f = Math.exp(-4.5 * dt);
+    v.x *= f; v.y *= f;
+    if (Math.hypot(v.x, v.y) < 12) estado.inercia = null;
+  } else if (!estado.arrastrando) {
+    estado.foco.lerp(estado.focoObj, suave(9, dt));
+  }
+  const lectura = factorLectura(estado.zoom), quieto = 1 - lectura;
+  const leyendo = lectura > 0.3;
+  if (leyendo !== document.body.classList.contains('leyendo')) document.body.classList.toggle('leyendo', leyendo);
+
+  const inclinar = estado.arrastrando ? 0 : quieto;
+  estado.tiltY = lerp(estado.tiltY, estado.px * 0.32 * inclinar, suave(4, dt));
+  estado.tiltX = lerp(estado.tiltX, -estado.py * 0.2 * inclinar, suave(4, dt));
+
+  const volteo = clamp01((t - estado.volteoT) / 0.9);
+  const levante = Math.sin(Math.PI * volteo) * 0.38;
+  const giroIntro = (1 - pTarjeta) * -4 * TAU;
+
+  tarjeta.pivote.rotation.set(
+    estado.rotX + estado.tiltX + Math.sin(t * 0.8) * 0.025 * quieto,
+    estado.rotY + estado.tiltY + giroIntro + Math.sin(t * 0.55) * 0.05 * quieto,
+    Math.sin(t * 0.7) * 0.018 * quieto + (1 - pTarjeta) * 0.3
+  );
+  tarjeta.raiz.position.y = CARD_Y + Math.sin(t * 1.15) * 0.06 * quieto + levante + (1 - pTarjeta) * 4.2;
+  const escala = lerp(0.55, 1, pTarjeta) * (1 + golpe * 0.025);
+  tarjeta.raiz.scale.setScalar(escala);
+  tarjeta.aura.material.opacity = ((0.2 + 0.05 * Math.sin(t * 1.3)) * pTarjeta + golpe * 0.5) * (1 - lectura * 0.8);
+
+  holoUniforms.uTiempo.value = t;
+  holoUniforms.uIntensidad.value = lerp(holoUniforms.uIntensidad.value, (estado.holo ? CONFIG.intensidadHolo : 0) * pTarjeta * (1 - lectura * 0.75), suave(5, dt));
+  holoUniforms.uBarrido.value = ((t * 0.16) % 1.6) - 0.3 + (golpe > 0.01 ? 0 : 0);
+
+  // onda expansiva
+  const pOnda = clamp01((ti - 3.35) / 1.4);
+  mundo.onda.scale.setScalar(0.7 + easeOutCubic(pOnda) * 5);
+  mundo.onda.material.opacity = pOnda > 0 && pOnda < 1 ? (1 - pOnda) * 0.9 : 0;
+  bloom.strength = (0.35 + golpe * 1.1) * (1 - lectura * 0.6);
+  pasoFinal.uniforms.uLectura.value = lectura;
+
+  // ---- Monedas en órbita ----
+  const N = mundo.N_ORBITA, radio = lerp(7.5, 2.75, pMonedas) + lectura * 3, giroExtra = (1 - pMonedas) * (1 - pMonedas) * 7;
+  for (let i = 0; i < N; i++) {
+    const a = (i / N) * TAU + t * 0.2 + giroExtra;
+    const s = Math.sin(a), co = Math.cos(a);
+    dummy.position.set(co * radio, CARD_Y - s * 1.6 + Math.sin(t * 1.3 + i) * 0.08, s * radio * 0.9);
+    dummy.rotation.set(t * 0.9 + i * 1.7, t * 1.4 + i, Math.PI / 2 * 0.6);
+    dummy.scale.setScalar(clamp01((ti - 0.2 - i * 0.05) / 0.8) * (1 - lectura * 0.9));
+    dummy.updateMatrix();
+    mundo.orbita.setMatrixAt(i, dummy.matrix);
+  }
+  mundo.orbita.instanceMatrix.needsUpdate = true;
+
+  // ---- Partículas ----
+  for (const p of [mundo.polvo, mundo.bokeh, mundo.chispas]) {
+    p.material.uniforms.uTiempo.value = t;
+  }
+  mundo.polvo.material.uniforms.uOpacidad.value = 0.55 * l * (1 - lectura * 0.7);
+  mundo.bokeh.material.uniforms.uOpacidad.value = 0.22 * l;
+  mundo.chispas.material.uniforms.uOpacidad.value = (0.8 + golpe * 2) * pTarjeta * (1 - lectura * 0.95);
+  moverParticulas(mundo.polvo, dt, t, 0.05);
+  moverParticulas(mundo.chispas, dt, t, 0.18);
+
+  // ---- Cámara ----
+  if (!estado.presionando && !estado.inercia) {
+    estado.cpx = lerp(estado.cpx, estado.px, suave(2.5, dt));
+    estado.cpy = lerp(estado.cpy, estado.py, suave(2.5, dt));
+  }
+  ajustarCalidad(dt, ti);
+  // al leer, la cámara mira de frente al punto enfocado y sigue a la tarjeta
+  estado.dist = posicionCamara(camera, estado.zoom, estado.foco.x, estado.foco.y, tarjeta.raiz.position.y, pCam, estado.cpx, estado.cpy);
+
+  composer.render(dt);
+}
+
+// Si el equipo no llega a ~45 fps se baja un poco la resolución interna, y se sube si sobra
+function ajustarCalidad(dt, ti) {
+  const c = estado.calidad;
+  c.ft = lerp(c.ft, dt, 0.05);
+  if (ti < INTRO || (c.revisar -= dt) > 0) return;
+  c.revisar = 1.5;
+  let pr = c.pr;
+  if (c.ft > 1 / 45 && pr > 1) pr = Math.max(1, pr - 0.25);
+  else if (c.ft < 1 / 58 && pr < c.max) pr = Math.min(c.max, pr + 0.25);
+  if (pr !== c.pr) {
+    c.pr = pr;
+    renderer.setPixelRatio(pr);
+    composer.setPixelRatio(pr);
+    composer.setSize(innerWidth, innerHeight);
+    [mundo.polvo, mundo.bokeh, mundo.chispas].forEach((m) => (m.material.uniforms.uPx.value = pr));
+  }
+}
+
+function moverParticulas(p, dt, t, subida) {
+  const pos = p.geometry.attributes.position, { caja, vel, n } = p.userData;
+  for (let i = 0; i < n; i++) {
+    let y = pos.getY(i) + dt * subida * vel[i];
+    if (y > caja.y[1]) y = caja.y[0];
+    pos.setY(i, y);
+    pos.setX(i, pos.getX(i) + Math.sin(t * 0.3 * vel[i] + i) * dt * 0.05);
+    pos.setZ(i, pos.getZ(i) + Math.cos(t * 0.25 * vel[i] + i * 1.3) * dt * 0.04);
+  }
+  pos.needsUpdate = true;
+}
+
+/* =====================================================================
+   Arranque
+   ===================================================================== */
+async function iniciar() {
+  const fuentes = Promise.all([
+    document.fonts.load('900 40px Cinzel'), document.fonts.load('700 40px Cinzel'), document.fonts.load('500 40px Cinzel'),
+    document.fonts.load('italic 500 30px "Cormorant Garamond"'), document.fonts.load('italic 600 30px "Cormorant Garamond"'), document.fonts.load('600 30px "Cormorant Garamond"'),
+  ]);
+  await Promise.race([fuentes, new Promise((r) => setTimeout(r, 3000))]);
+  construirMundo();
+  redimensionar();
+  await imagenesIniciales();
+  renderer.compile(scene, camera);
+  reloj.start();
+  estado.introInicio = 0;
+  animar();
+  setTimeout(() => document.getElementById('cargando').classList.add('listo'), 60);
+}
+iniciar();
+</script>
+</body>
+</html>
